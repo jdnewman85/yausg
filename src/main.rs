@@ -9,6 +9,7 @@ fn main() {
         .add_startup_system(setup_graphics)
         .add_startup_system(setup_physics)
         .add_system(print_ball_altitude)
+        .add_system(apply_kb_thrust)
         .run();
 }
 
@@ -31,7 +32,6 @@ fn setup_physics(
     commands
         .spawn()
         .insert(Collider::cuboid(100.0, 0.1, 100.0))
-//        .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -2.0, 0.0)))
         .insert_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
@@ -56,5 +56,20 @@ fn setup_physics(
 fn print_ball_altitude(positions: Query<&Transform, With<RigidBody>>) {
     for transform in positions.iter() {
         println!("Ball altitude: {}", transform.translation.y);
+    }
+}
+
+fn apply_kb_thrust(
+    mut commands: Commands,
+    keys: Res<Input<KeyCode>>,
+    mut entities: Query<Entity, With<RigidBody>>,
+) {
+    if keys.pressed(KeyCode::Space) {
+        for entity in entities.iter_mut() {
+            commands.entity(entity).insert(ExternalImpulse {
+                impulse: Vec3::new(0.0, 0.2, 0.0),
+                torque_impulse: Vec3::new(0.01, 0.0, 0.0),
+            });
+        }
     }
 }
