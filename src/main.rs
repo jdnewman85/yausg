@@ -16,21 +16,23 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn_bundle(Camera3dBundle {
+    let camera = commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
-    });
+    }).id();
 
+    //Plane
     commands
         .spawn()
         .insert(Collider::cuboid(100.0, 0.1, 100.0))
         .insert_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        transform: Transform::from_xyz(0.0, -2.0, 0.0),
-        ..default()
-    });
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+            transform: Transform::from_xyz(0.0, -2.0, 0.0),
+            ..default()
+        });
 
+    //Cube
     commands
         .spawn()
         .insert(RigidBody::Dynamic)
@@ -41,7 +43,7 @@ fn setup(
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
             ..default()
-        });
+        }).push_children(&[camera]);
 }
 
 fn apply_kb_thrust(
