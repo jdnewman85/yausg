@@ -1,4 +1,4 @@
-use bevy::{prelude::*, transform};
+use bevy::{prelude::*};
 use bevy_rapier3d::prelude::*;
 
 #[derive(Component)]
@@ -70,6 +70,14 @@ fn apply_kb_thrust(
     }
 }
 
+/* Let's come up with a useful camera
+ * Look at cube
+ * Extend distance from cube to be constant (optional?) @ defined angle from
+ * Then keyboard adjustments
+ * A&D - change angle of camera
+ * W&S - change distance of camera
+ */
+
 fn aim_camera_cube(
     mut cube_query: Query<&Transform, (With<TheCube>, Without<MainCamera>)>,
     mut camera_query: Query<&mut Transform, With<MainCamera>>,
@@ -79,6 +87,7 @@ fn aim_camera_cube(
         return
     };
     for mut transform in camera_query.iter_mut() {
-        *transform = Transform::from_xyz(3.0, 3.0, 10.0).looking_at(cube_transform.translation, Vec3::Y);
+        let offset = cube_transform.translation + Vec3::new(3.0, 3.0, 10.0);
+        *transform = Transform::from_translation(offset).looking_at(cube_transform.translation, Vec3::Y);
     }
 }
