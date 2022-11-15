@@ -1,5 +1,11 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, transform};
 use bevy_rapier3d::prelude::*;
+
+#[derive(Component)]
+struct MainCamera;
+#[derive(Component)]
+struct TheCube;
+
 
 fn main() {
     App::new()
@@ -8,6 +14,7 @@ fn main() {
         .add_plugin(RapierDebugRenderPlugin::default())
         .add_startup_system(setup)
         .add_system(apply_kb_thrust)
+        .add_system(aim_camera_cube)
         .run();
 }
 
@@ -16,10 +23,10 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let camera = commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(-3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+    commands.spawn_bundle(Camera3dBundle {
+        transform: Transform::from_xyz(3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
-    }).id();
+    }).insert(MainCamera);
 
     //Plane
     commands
@@ -43,7 +50,9 @@ fn setup(
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
             ..default()
-        }).push_children(&[camera]);
+        }).insert(TheCube);
+
+    //commands.entity(camera).push_children(&[cube]);
 }
 
 fn apply_kb_thrust(
@@ -58,5 +67,18 @@ fn apply_kb_thrust(
                 torque_impulse: Vec3::new(0.01, 0.0, 0.0),
             });
         }
+    }
+}
+
+fn aim_camera_cube(
+    mut cube_query: Query<&Transform, (With<TheCube>, Without<MainCamera>)>,
+    mut camera_query: Query<&mut Transform, With<MainCamera>>,
+) {
+    //TODO Assumes exactly a single TheCube
+    let Some(cube_transform) = cube_query.iter_mut().next() else {
+        return
+    };
+    for mut transform in camera_query.iter_mut() {
+        *transform = Transform::from_xyz(3.0, 3.0, 10.0).looking_at(cube_transform.translation, Vec3::Y);
     }
 }
