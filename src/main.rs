@@ -1,8 +1,12 @@
-use bevy::{prelude::*};
+use std::f32::consts::PI;
+use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 #[derive(Component)]
-struct MainCamera;
+struct MainCamera {
+    distance: f32,
+    y_angle: f32,
+}
 #[derive(Component)]
 struct TheCube;
 
@@ -26,7 +30,10 @@ fn setup(
     commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
-    }).insert(MainCamera);
+    }).insert(MainCamera{
+        distance: 5.0,
+        y_angle: 0.0,
+    });
 
     //Plane
     commands
@@ -70,24 +77,36 @@ fn apply_kb_thrust(
     }
 }
 
-/* Let's come up with a useful camera
- * Look at cube
- * Extend distance from cube to be constant (optional?) @ defined angle from
- * Then keyboard adjustments
- * A&D - change angle of camera
- * W&S - change distance of camera
- */
-
 fn aim_camera_cube(
+    keys: Res<Input<KeyCode>>,
     mut cube_query: Query<&Transform, (With<TheCube>, Without<MainCamera>)>,
-    mut camera_query: Query<&mut Transform, With<MainCamera>>,
+    mut camera_query: Query<(&mut Transform, &mut MainCamera)>,
 ) {
     //TODO Assumes exactly a single TheCube
-    let Some(cube_transform) = cube_query.iter_mut().next() else {
+    let Some(cube_transform) = cube_query.iter_mut().last() else {
         return
     };
-    for mut transform in camera_query.iter_mut() {
-        let offset = cube_transform.translation + Vec3::new(3.0, 3.0, 10.0);
-        *transform = Transform::from_translation(offset).looking_at(cube_transform.translation, Vec3::Y);
+    for (mut transform, mut camera) in camera_query.iter_mut() {
+        if keys.pressed(KeyCode::A) {
+            camera.y_angle -= 0.05;
+        }
+        if keys.pressed(KeyCode::D) {
+            camera.y_angle += 0.05;
+        }
+        if keys.pressed(KeyCode::S) {
+            camera.distance -= 0.5;
+        }
+        if keys.pressed(KeyCode::W) {
+            camera.distance += 0.5;
+        }
+
+        let cube_position = cube_transform.translation;
+        let start_position = cube_position+Vec3::new(camera.distance, 0.0, 0.0);
+        let mut camera_transform = Transform::from_translation(start_position);
+        camera_transform.translate_around(
+            cube_position,
+            Quat::from_euler(EulerRot::YXZ, camera.y_angle, 0.0, PI/4.0)
+        );
+        *transform = camera_transform.looking_at(cube_transform.translation, Vec3::Y);
     }
 }
