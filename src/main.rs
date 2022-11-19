@@ -1,15 +1,15 @@
-use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use std::f32::consts::PI;
 
 #[derive(Component)]
 struct MainCamera {
     distance: f32,
     y_angle: f32,
 }
+
 #[derive(Component)]
 struct TheCube;
-
 
 fn main() {
     App::new()
@@ -27,13 +27,16 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
-    }).insert(MainCamera{
-        distance: 5.0,
-        y_angle: 0.0,
-    });
+    //Camera
+    commands
+        .spawn_bundle(Camera3dBundle {
+            transform: Transform::from_xyz(3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..Default::default()
+        })
+        .insert(MainCamera {
+            distance: 5.0,
+            y_angle: 0.0,
+        });
 
     //Plane
     commands
@@ -57,7 +60,8 @@ fn setup(
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
             ..default()
-        }).insert(TheCube);
+        })
+        .insert(TheCube);
 
     //commands.entity(camera).push_children(&[cube]);
 }
@@ -101,11 +105,11 @@ fn aim_camera_cube(
         }
 
         let cube_position = cube_transform.translation;
-        let start_position = cube_position+Vec3::new(camera.distance, 0.0, 0.0);
+        let start_position = cube_position + Vec3::new(camera.distance, 0.0, 0.0);
         let mut camera_transform = Transform::from_translation(start_position);
         camera_transform.translate_around(
             cube_position,
-            Quat::from_euler(EulerRot::YXZ, camera.y_angle, 0.0, PI/4.0)
+            Quat::from_euler(EulerRot::YXZ, camera.y_angle, 0.0, PI / 4.0),
         );
         *transform = camera_transform.looking_at(cube_transform.translation, Vec3::Y);
     }
