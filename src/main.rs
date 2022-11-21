@@ -87,9 +87,7 @@ fn aim_camera_cube(
     mut camera_query: Query<(&mut Transform, &mut MainCamera)>,
 ) {
     //TODO Assumes exactly a single TheCube
-    let Some(cube_transform) = cube_query.iter_mut().last() else {
-        return
-    };
+    let Some(cube_transform) = cube_query.iter_mut().last() else { return };
     for (mut transform, mut camera) in camera_query.iter_mut() {
         if keys.pressed(KeyCode::A) {
             camera.y_angle -= 0.05;
