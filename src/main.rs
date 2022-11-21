@@ -19,6 +19,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system(apply_kb_thrust)
         .add_system(aim_camera_cube)
+        .add_system(raycast)
         .run();
 }
 
@@ -88,27 +89,42 @@ fn aim_camera_cube(
 ) {
     //TODO Assumes exactly a single TheCube
     let Some(cube_transform) = cube_query.iter_mut().last() else { return };
-    for (mut transform, mut camera) in camera_query.iter_mut() {
-        if keys.pressed(KeyCode::A) {
-            camera.y_angle -= 0.05;
-        }
-        if keys.pressed(KeyCode::D) {
-            camera.y_angle += 0.05;
-        }
-        if keys.pressed(KeyCode::S) {
-            camera.distance -= 0.5;
-        }
-        if keys.pressed(KeyCode::W) {
-            camera.distance += 0.5;
-        }
+    //TODO Assumes exactly a single MainCamera
+    let Some((mut transform, mut camera)) = camera_query.iter_mut().last() else { return };
 
-        let cube_position = cube_transform.translation;
-        let start_position = cube_position + Vec3::new(camera.distance, 0.0, 0.0);
-        let mut camera_transform = Transform::from_translation(start_position);
-        camera_transform.translate_around(
-            cube_position,
-            Quat::from_euler(EulerRot::YXZ, camera.y_angle, 0.0, PI / 4.0),
-        );
-        *transform = camera_transform.looking_at(cube_transform.translation, Vec3::Y);
+    if keys.pressed(KeyCode::A) {
+        camera.y_angle -= 0.05;
     }
+    if keys.pressed(KeyCode::D) {
+        camera.y_angle += 0.05;
+    }
+    if keys.pressed(KeyCode::S) {
+        camera.distance -= 0.5;
+    }
+    if keys.pressed(KeyCode::W) {
+        camera.distance += 0.5;
+    }
+
+    let cube_position = cube_transform.translation;
+    let start_position = cube_position + Vec3::new(camera.distance, 0.0, 0.0);
+    let mut camera_transform = Transform::from_translation(start_position);
+    camera_transform.translate_around(
+        cube_position,
+        Quat::from_euler(EulerRot::YXZ, camera.y_angle, 0.0, PI / 4.0),
+    );
+    *transform = camera_transform.looking_at(cube_transform.translation, Vec3::Y);
+}
+
+fn raycast(mut camera_query: Query<&Transform>, rapier_context: Res<RapierContext>) {
+    let Some(camera_transform) = camera_query.iter_mut().last() else { return };
+    let Some((entity, toi)) = rapier_context.cast_ray(
+        camera_transform.translation,    //position
+        camera_transform.rotation.xyz(), //rotation
+        100.0,                           //max_toi
+        true,                            //solid
+        QueryFilter::new(),              //filter
+    ) else { return };
+
+    let ray_hit_position = camera_transform.translation + camera_transform.rotation.xyz() * toi;
+    println!("Entity {:?} @ {}", entity, ray_hit_position)
 }
