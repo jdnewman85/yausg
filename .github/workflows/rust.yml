@@ -48,3 +48,5 @@ jobs:
         name: github-pages
         path: ${{ runner.temp }}/artifact.tar
         retention-days: ${{ 1 }}
+    - name: Deploy github.io page
+      uses: actions/deploy-pages@v1
