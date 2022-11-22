@@ -42,11 +42,11 @@ fn setup(
     //Plane
     commands
         .spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
             material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
             transform: Transform::from_xyz(0.0, -2.0, 0.0),
             ..default()
-        }).insert(Collider::cuboid(100.0, 0.1, 100.0));
+        }).insert(Collider::cuboid(5.0, 0.1, 5.0));
 
     //Cube
     commands
@@ -56,7 +56,7 @@ fn setup(
         .insert(Restitution::coefficient(0.7))
         .insert(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
+            material: materials.add(Color::rgb(1.0, 1.0, 1.0).into()),
             ..default()
         })
         .insert(TheCube);
@@ -111,18 +111,36 @@ fn aim_camera_cube(
 }
 
 fn raycast(
-    camera_query: Query<&Transform>,
+    camera_query: Query<(&Camera, &GlobalTransform)>,
+    mouse_buttons: Res<Input<MouseButton>>,
+    windows: Res<Windows>,
     rapier_context: Res<RapierContext>,
+
+    mut cube_query: Query<(Entity, &Handle<StandardMaterial>), With<TheCube>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let Some(camera_transform) = camera_query.iter_mut().last() else { return };
-    let Some((entity, toi)) = rapier_context.cast_ray(
-        camera_transform.translation,    //position
-        camera_transform.rotation.xyz(), //rotation
-        100.0,                           //max_toi
-        true,                            //solid
-        QueryFilter::new(),              //filter
+    if !mouse_buttons.just_pressed(MouseButton::Left) { return };
+
+    let Some(primary_window) = windows.get_primary() else { return };
+    let Some(cursor_position) = primary_window.cursor_position() else { return };
+
+    let Some((camera, camera_transform)) = camera_query.iter().last() else { return };
+    let Some(cursor_ray) = camera.viewport_to_world(camera_transform, cursor_position) else { return };
+    let Some((entity, _toi)) = rapier_context.cast_ray(
+        cursor_ray.origin,           //position
+        cursor_ray.direction,        //rotation
+        f32::MAX,                    //max_toi
+        true,                        //solid
+        QueryFilter::only_dynamic(), //filter
     ) else { return };
 
-    let ray_hit_position = camera_transform.translation + camera_transform.rotation.xyz() * toi;
-    println!("Entity {:?} @ {}", entity, ray_hit_position)
+    //let ray_hit_position = cursor_ray.origin + cursor_ray.direction * toi;
+    //println!("Entity {:?} @ {}", entity, ray_hit_position);
+
+    for (cube_entity, cube_material_handle) in cube_query.iter_mut() {
+        if entity != cube_entity { continue };
+
+        let Some(cube_material) = materials.get_mut(cube_material_handle) else { continue };
+        cube_material.base_color = Color::rgb(rand::random(), rand::random(), rand::random());
+    }
 }
