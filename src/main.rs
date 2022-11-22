@@ -60,8 +60,6 @@ fn setup(
             ..default()
         })
         .insert(TheCube);
-
-    //commands.entity(camera).push_children(&[cube]);
 }
 
 fn apply_kb_thrust(
@@ -112,7 +110,10 @@ fn aim_camera_cube(
     *transform = camera_transform.looking_at(cube_transform.translation, Vec3::Y);
 }
 
-fn raycast(mut camera_query: Query<&Transform>, rapier_context: Res<RapierContext>) {
+fn raycast(
+    camera_query: Query<&Transform>,
+    rapier_context: Res<RapierContext>,
+) {
     let Some(camera_transform) = camera_query.iter_mut().last() else { return };
     let Some((entity, toi)) = rapier_context.cast_ray(
         camera_transform.translation,    //position
