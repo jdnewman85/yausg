@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use bevy_inspector_egui::WorldInspectorPlugin;
+use bevy_inspector_egui_rapier::InspectableRapierPlugin;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
 
@@ -16,6 +18,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(InspectableRapierPlugin)
+        .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(setup)
         .add_system(apply_kb_thrust)
         .add_system(aim_camera_cube)
