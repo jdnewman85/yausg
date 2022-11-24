@@ -17,7 +17,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugin(RapierDebugRenderPlugin::default())
+        //.add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(InspectableRapierPlugin)
         .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(setup)
@@ -32,7 +32,30 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    //Clear color
+    commands.insert_resource(
+        ClearColor(Color::rgb(0.0, 0.0, 0.0))
+    );
+
     //Light
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.00,
+    });
+
+    commands.spawn(SpotLightBundle {
+        transform: Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+        spot_light: SpotLight {
+            intensity: 1600.0,
+            color: Color::BLUE,
+            shadows_enabled: true,
+            inner_angle: 0.6,
+            outer_angle: 0.8,
+            ..default()
+        },
+        ..default()
+    });
+    /*
     const HALF_SIZE: f32 = 10.0;
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -55,6 +78,7 @@ fn setup(
         },
         ..default()
     });
+    */
 
     //Camera
     commands
