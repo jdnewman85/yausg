@@ -23,7 +23,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system(apply_kb_thrust)
         .add_system(aim_camera_cube)
-        .add_system(raycast)
+        .add_system(raycast_system)
         .run();
 }
 
@@ -114,6 +114,7 @@ fn aim_camera_cube(
     *transform = camera_transform.looking_at(cube_transform.translation, Vec3::Y);
 }
 
+//TODO Should factor out the raycast into a failable function
 fn raycast(
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mouse_buttons: Res<Input<MouseButton>>,
@@ -122,21 +123,21 @@ fn raycast(
 
     mut cube_query: Query<(Entity, &Handle<StandardMaterial>), With<TheCube>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    if !mouse_buttons.just_pressed(MouseButton::Left) { return };
+) -> Option<()> {
+    if !mouse_buttons.just_pressed(MouseButton::Left) { return None };
 
-    let Some(primary_window) = windows.get_primary() else { return };
-    let Some(cursor_position) = primary_window.cursor_position() else { return };
+    let primary_window = windows.get_primary()?;
+    let cursor_position = primary_window.cursor_position()?;
 
-    let Some((camera, camera_transform)) = camera_query.iter().last() else { return };
-    let Some(cursor_ray) = camera.viewport_to_world(camera_transform, cursor_position) else { return };
-    let Some((entity, _toi)) = rapier_context.cast_ray(
+    let (camera, camera_transform) = camera_query.iter().last()?;
+    let cursor_ray = camera.viewport_to_world(camera_transform, cursor_position)?;
+    let (entity, _toi) = rapier_context.cast_ray(
         cursor_ray.origin,           //position
         cursor_ray.direction,        //rotation
         f32::MAX,                    //max_toi
         true,                        //solid
         QueryFilter::only_dynamic(), //filter
-    ) else { return };
+    )?;
 
     //let ray_hit_position = cursor_ray.origin + cursor_ray.direction * toi;
     //println!("Entity {:?} @ {}", entity, ray_hit_position);
@@ -147,4 +148,25 @@ fn raycast(
         let Some(cube_material) = materials.get_mut(cube_material_handle) else { continue };
         cube_material.base_color = Color::rgb(rand::random(), rand::random(), rand::random());
     }
+
+    return Some(())
+}
+
+fn raycast_system(
+    camera_query: Query<(&Camera, &GlobalTransform)>,
+    mouse_buttons: Res<Input<MouseButton>>,
+    windows: Res<Windows>,
+    rapier_context: Res<RapierContext>,
+
+    cube_query: Query<(Entity, &Handle<StandardMaterial>), With<TheCube>>,
+    materials: ResMut<Assets<StandardMaterial>>,
+) {
+    raycast(
+        camera_query,
+        mouse_buttons,
+        windows,
+        rapier_context,
+        cube_query,
+        materials,
+    );
 }
