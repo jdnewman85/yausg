@@ -1,4 +1,8 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    reflect::TypeUuid,
+    render::render_resource::{AsBindGroup, ShaderRef},
+};
 use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_inspector_egui_rapier::InspectableRapierPlugin;
 use bevy_rapier3d::prelude::*;
@@ -13,13 +17,28 @@ struct MainCamera {
 #[derive(Component)]
 struct TheCube;
 
+#[derive(AsBindGroup, TypeUuid, Clone)]
+#[uuid = "e6c67ca5-2f13-4fc1-8a29-f6c99dfaf16e"]
+pub struct RedMaterial {
+    #[uniform(0)]
+    color: Color,
+}
+
+impl Material for RedMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/red_material.wgsl".into()
+    }
+}
+
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        //.add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(InspectableRapierPlugin)
         .add_plugin(WorldInspectorPlugin::new())
+        .add_plugin(MaterialPlugin::<RedMaterial>::default())
         .add_startup_system(setup)
         .add_system(apply_kb_thrust)
         .add_system(aim_camera_cube)
@@ -31,7 +50,13 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut custom_materials: ResMut<Assets<RedMaterial>>,
 ) {
+    //TEMP Custom material test
+    let material = custom_materials.add(RedMaterial {
+        color: Color::BLUE,
+    });
+
     //Clear color
     commands.insert_resource(
         ClearColor(Color::rgb(0.0, 0.0, 0.0))
@@ -47,7 +72,7 @@ fn setup(
         transform: Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
         spot_light: SpotLight {
             intensity: 1600.0,
-            color: Color::BLUE,
+            color: Color::WHITE,
             shadows_enabled: true,
             inner_angle: 0.6,
             outer_angle: 0.8,
@@ -93,9 +118,9 @@ fn setup(
 
     //Plane
     commands
-        .spawn(PbrBundle {
+        .spawn(MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
-            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+            material,
             transform: Transform::from_xyz(0.0, -2.0, 0.0),
             ..default()
         }).insert(Collider::cuboid(5.0, 0.1, 5.0));
