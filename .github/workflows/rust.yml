@@ -27,6 +27,8 @@ jobs:
         wasm-bindgen --out-dir ./out/ --target web ./target/wasm32-unknown-unknown/release/yausg.wasm
     - name: Copy in html
       run: cp index.html ./out/.
+    - name: Copy in assets
+      run: cp -r assets ./out/.
     - name: Zip
       run: |
         for f in $(chmod -c -R +r . | awk '{print substr($3, 2, length($3)-2)}')
