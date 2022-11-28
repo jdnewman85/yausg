@@ -51,6 +51,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut custom_materials: ResMut<Assets<RedMaterial>>,
+    assets: Res<AssetServer>,
 ) {
     //TEMP Custom material test
     let material = custom_materials.add(RedMaterial {
@@ -59,7 +60,7 @@ fn setup(
 
     //Clear color
     commands.insert_resource(
-        ClearColor(Color::rgb(0.0, 0.0, 0.0))
+        ClearColor(Color::ALICE_BLUE)
     );
 
     //Light
@@ -80,7 +81,6 @@ fn setup(
         },
         ..default()
     });
-    /*
     const HALF_SIZE: f32 = 10.0;
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -103,7 +103,6 @@ fn setup(
         },
         ..default()
     });
-    */
 
     //Camera
     commands
@@ -137,6 +136,16 @@ fn setup(
             ..default()
         })
         .insert(TheCube);
+
+    //gltf
+    let gltf = assets.load("models/not-cube/not-cube.gltf#Scene0");
+    commands.spawn(SceneBundle {
+        scene: gltf,
+        transform: Transform::from_xyz(-2.0, 0.0, -2.0)
+            .with_scale(Vec3::new(0.25, 0.25, 0.25)),
+        ..default()
+    });
+
 }
 
 fn apply_kb_thrust(
