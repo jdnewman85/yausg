@@ -149,13 +149,13 @@ fn apply_kb_thrust(
 
 fn aim_camera_cube(
     keys: Res<Input<KeyCode>>,
-    mut cube_query: Query<&Transform, (With<TheCube>, Without<MainCamera>)>,
+    cube_query: Query<&Transform, (With<TheCube>, Without<MainCamera>)>,
     mut camera_query: Query<(&mut Transform, &mut MainCamera)>,
 ) {
     //TODO Assumes exactly a single TheCube
-    let Some(cube_transform) = cube_query.iter_mut().last() else { return };
+    let Ok(cube_transform) = cube_query.get_single() else { return };
     //TODO Assumes exactly a single MainCamera
-    let Some((mut transform, mut camera)) = camera_query.iter_mut().last() else { return };
+    let Ok((mut transform, mut camera)) = camera_query.get_single_mut() else { return };
 
     if keys.pressed(KeyCode::A) {
         camera.y_angle -= 0.05;
@@ -197,7 +197,7 @@ fn raycast(
     let primary_window = window_query.get_single().unwrap();
     let cursor_position = primary_window.cursor_position()?;
 
-    let (camera, camera_transform) = camera_query.iter().last()?;
+    let Ok((camera, camera_transform)) = camera_query.get_single() else { return None };
     let cursor_ray = camera.viewport_to_world(camera_transform, cursor_position)?;
     let (entity, _toi) = rapier_context.cast_ray(
         cursor_ray.origin,           //position
