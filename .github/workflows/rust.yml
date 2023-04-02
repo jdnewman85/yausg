@@ -17,8 +17,8 @@ jobs:
     - uses: jetli/wasm-bindgen-action@v0.1.0
     - name: Setup
       run: |
-        rustup install 1.65.0
-        rustup default 1.65.0
+        rustup install 1.68.2
+        rustup default 1.68.2
         rustup target add wasm32-unknown-unknown
     - uses: Swatinem/rust-cache@v2
     - name: Build

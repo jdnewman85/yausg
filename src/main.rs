@@ -1,9 +1,10 @@
 use bevy::{
-    prelude::*, reflect::TypeUuid,
+    prelude::*,
+    reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
+    window::PrimaryWindow,
 };
-use bevy_inspector_egui::WorldInspectorPlugin;
-use bevy_inspector_egui_rapier::InspectableRapierPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
 
@@ -29,13 +30,11 @@ impl Material for RedMaterial {
     }
 }
 
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())
-        .add_plugin(InspectableRapierPlugin)
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(MaterialPlugin::<RedMaterial>::default())
         .add_startup_system(setup)
@@ -53,14 +52,10 @@ fn setup(
     assets: Res<AssetServer>,
 ) {
     //TEMP Custom material test
-    let material = custom_materials.add(RedMaterial {
-        color: Color::BLUE,
-    });
+    let material = custom_materials.add(RedMaterial { color: Color::BLUE });
 
     //Clear color
-    commands.insert_resource(
-        ClearColor(Color::ALICE_BLUE)
-    );
+    commands.insert_resource(ClearColor(Color::ALICE_BLUE));
 
     //Light
     commands.insert_resource(AmbientLight {
@@ -69,7 +64,8 @@ fn setup(
     });
 
     commands.spawn(SpotLightBundle {
-        transform: Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+        transform: Transform::from_xyz(-1.0, 2.0, 0.0)
+            .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
         spot_light: SpotLight {
             intensity: 1600.0,
             color: Color::WHITE,
@@ -80,18 +76,8 @@ fn setup(
         },
         ..default()
     });
-    const HALF_SIZE: f32 = 10.0;
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            shadow_projection: OrthographicProjection {
-                left: -HALF_SIZE,
-                right: HALF_SIZE,
-                bottom: -HALF_SIZE,
-                top: HALF_SIZE,
-                near: -10.0 * HALF_SIZE,
-                far: 10.0 * HALF_SIZE,
-                ..default()
-            },
             shadows_enabled: true,
             ..default()
         },
@@ -107,19 +93,22 @@ fn setup(
     commands
         .spawn(Camera3dBundle {
             transform: Transform::from_xyz(3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..Default::default() })
+            ..Default::default()
+        })
         .insert(MainCamera {
-            distance: 5.0, y_angle: 0.0,
+            distance: 5.0,
+            y_angle: 0.0,
         });
 
     //Plane
     commands
         .spawn(MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
+            mesh: meshes.add(Mesh::from(shape::Plane::from_size(10.0))),
             material,
             transform: Transform::from_xyz(0.0, -2.0, 0.0),
             ..default()
-        }).insert(Collider::cuboid(5.0, 0.1, 5.0));
+        })
+        .insert(Collider::cuboid(5.0, 0.1, 5.0));
 
     //Cube
     commands
@@ -138,11 +127,9 @@ fn setup(
     let gltf = assets.load("models/not-cube/not-cube.gltf#Scene0");
     commands.spawn(SceneBundle {
         scene: gltf,
-        transform: Transform::from_xyz(-2.0, 0.0, -2.0)
-            .with_scale(Vec3::new(0.25, 0.25, 0.25)),
+        transform: Transform::from_xyz(-2.0, 0.0, -2.0).with_scale(Vec3::new(0.25, 0.25, 0.25)),
         ..default()
     });
-
 }
 
 fn apply_kb_thrust(
@@ -197,15 +184,17 @@ fn aim_camera_cube(
 fn raycast(
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mouse_buttons: Res<Input<MouseButton>>,
-    windows: Res<Windows>,
     rapier_context: Res<RapierContext>,
 
+    window_query: Query<&Window, With<PrimaryWindow>>,
     mut cube_query: Query<(Entity, &Handle<StandardMaterial>), With<TheCube>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) -> Option<()> {
-    if !mouse_buttons.just_pressed(MouseButton::Left) { return None };
+    if !mouse_buttons.just_pressed(MouseButton::Left) {
+        return None;
+    };
 
-    let primary_window = windows.get_primary()?;
+    let primary_window = window_query.get_single().unwrap();
     let cursor_position = primary_window.cursor_position()?;
 
     let (camera, camera_transform) = camera_query.iter().last()?;
@@ -222,29 +211,31 @@ fn raycast(
     //println!("Entity {:?} @ {}", entity, ray_hit_position);
 
     for (cube_entity, cube_material_handle) in cube_query.iter_mut() {
-        if entity != cube_entity { continue };
+        if entity != cube_entity {
+            continue;
+        };
 
         let Some(cube_material) = materials.get_mut(cube_material_handle) else { continue };
         cube_material.base_color = Color::rgb(rand::random(), rand::random(), rand::random());
     }
 
-    return Some(())
+    return Some(());
 }
 
 fn raycast_system(
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mouse_buttons: Res<Input<MouseButton>>,
-    windows: Res<Windows>,
     rapier_context: Res<RapierContext>,
 
+    window_query: Query<&Window, With<PrimaryWindow>>,
     cube_query: Query<(Entity, &Handle<StandardMaterial>), With<TheCube>>,
     materials: ResMut<Assets<StandardMaterial>>,
 ) {
     raycast(
         camera_query,
         mouse_buttons,
-        windows,
         rapier_context,
+        window_query,
         cube_query,
         materials,
     );

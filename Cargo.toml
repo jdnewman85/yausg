@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.9.0"
-bevy-inspector-egui = "0.14.0"
-bevy-inspector-egui-rapier = { version = "0.8", features = ["rapier3d"] }
-bevy_rapier3d = { version = "0.19.0", features = ["simd-stable", "debug-render" ] }
+bevy = "0.10.1"
+bevy-inspector-egui = "0.18.3"
+bevy-inspector-egui-rapier = { version = "0.9", features = ["rapier3d"] }
+bevy_rapier3d = { version = "0.21.0", features = ["simd-stable", "debug-render" ] }
 rand = "0.8.5"
 
 # Bevy optimization settings
