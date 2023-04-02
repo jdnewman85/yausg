@@ -1,6 +1,5 @@
 use bevy::{
-    prelude::*,
-    reflect::TypeUuid,
+    prelude::*, reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 use bevy_inspector_egui::WorldInspectorPlugin;
@@ -108,11 +107,9 @@ fn setup(
     commands
         .spawn(Camera3dBundle {
             transform: Transform::from_xyz(3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..Default::default()
-        })
+            ..Default::default() })
         .insert(MainCamera {
-            distance: 5.0,
-            y_angle: 0.0,
+            distance: 5.0, y_angle: 0.0,
         });
 
     //Plane
