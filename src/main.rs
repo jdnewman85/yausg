@@ -2,17 +2,21 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
-    window::PrimaryWindow,
+    window::PrimaryWindow, input::mouse::MouseMotion,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
 
 #[derive(Component)]
-struct MainCamera {
+struct OrbitCamera {
     distance: f32,
     y_angle: f32,
 }
+
+#[derive(Component)]
+struct FpsCamera { }
+
 
 #[derive(Component)]
 struct TheCube;
@@ -41,6 +45,7 @@ fn main() {
         .add_system(apply_kb_thrust)
         .add_system(aim_camera_cube)
         .add_system(raycast_system)
+        .add_system(fps_camera_controls)
         .run();
 }
 
@@ -95,10 +100,13 @@ fn setup(
             transform: Transform::from_xyz(3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         })
-        .insert(MainCamera {
+        .insert(FpsCamera { });
+        /*
+        .insert(OrbitCamera {
             distance: 5.0,
             y_angle: 0.0,
         });
+        */
 
     //Plane
     commands
@@ -149,12 +157,10 @@ fn apply_kb_thrust(
 
 fn aim_camera_cube(
     keys: Res<Input<KeyCode>>,
-    cube_query: Query<&Transform, (With<TheCube>, Without<MainCamera>)>,
-    mut camera_query: Query<(&mut Transform, &mut MainCamera)>,
+    cube_query: Query<&Transform, (With<TheCube>, Without<OrbitCamera>)>,
+    mut camera_query: Query<(&mut Transform, &mut OrbitCamera)>,
 ) {
-    //TODO Assumes exactly a single TheCube
     let Ok(cube_transform) = cube_query.get_single() else { return };
-    //TODO Assumes exactly a single MainCamera
     let Ok((mut transform, mut camera)) = camera_query.get_single_mut() else { return };
 
     if keys.pressed(KeyCode::A) {
@@ -239,4 +245,74 @@ fn raycast_system(
         cube_query,
         materials,
     );
+}
+
+use bevy::window::CursorGrabMode;
+fn fps_camera_controls(
+    mut window_query: Query<&mut Window, With<PrimaryWindow>>,
+    mut camera_query: Query<(&FpsCamera, &mut Transform)>,
+    mut ev_motion: EventReader<MouseMotion>,
+    mouse_buttons: Res<Input<MouseButton>>,
+    keys: Res<Input<KeyCode>>,
+) {
+    let Ok(mut window) = window_query.get_single_mut() else { return };
+    let Ok((_camera, mut camera_transform)) = camera_query.get_single_mut() else { return };
+
+    if mouse_buttons.just_pressed(MouseButton::Left) {
+        window.cursor.grab_mode = CursorGrabMode::Confined;
+        window.cursor.grab_mode = CursorGrabMode::Locked;
+        window.cursor.visible = false;
+    }
+
+    if keys.just_pressed(KeyCode::Escape) {
+        window.cursor.grab_mode = CursorGrabMode::None;
+        window.cursor.visible = true;
+    }
+
+    let cursor_locked = window.cursor.grab_mode == CursorGrabMode::Confined || window.cursor.grab_mode == CursorGrabMode::Locked;
+    if cursor_locked {
+        let mut mouse_move = Vec2::ZERO;
+        for motion_event in ev_motion.into_iter() {
+            mouse_move += motion_event.delta;
+        }
+
+        if mouse_move.length_squared() > 0.0 {
+            let delta_x = {
+                let delta = mouse_move.x / window.resolution.width() * std::f32::consts::PI * 2.0;
+                //if pan_orbit.upside_down { -delta } else { delta }
+                delta
+            };
+            let delta_y = mouse_move.y / window.resolution.height() * std::f32::consts::PI;
+
+            let sensitivity = 0.1;
+            let delta_x = delta_x * sensitivity;
+            let delta_y = delta_y * sensitivity;
+
+            let yaw = Quat::from_rotation_y(-delta_x);
+            let pitch = Quat::from_rotation_x(-delta_y);
+            camera_transform.rotation = yaw * camera_transform.rotation; // rotate around global y axis
+            camera_transform.rotation = camera_transform.rotation * pitch; // rotate around local x axis
+        }
+
+        let move_speed = 0.05;
+        if keys.pressed(KeyCode::A) {
+            let move_direction = camera_transform.local_x();
+            camera_transform.translation += move_direction * -move_speed;
+        }
+        if keys.pressed(KeyCode::D) {
+            let move_direction = camera_transform.local_x();
+            camera_transform.translation += move_direction * move_speed;
+        }
+        if keys.pressed(KeyCode::S) {
+            let move_direction = camera_transform.local_z();
+            camera_transform.translation += move_direction * move_speed;
+        }
+        if keys.pressed(KeyCode::W) {
+            let move_direction = camera_transform.local_z();
+            camera_transform.translation += move_direction * -move_speed;
+        }
+
+    }
+
+    ev_motion.clear();
 }
