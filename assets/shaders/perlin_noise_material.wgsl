@@ -1,4 +1,4 @@
-struct RedMaterial {
+struct PerlinNoiseMaterial {
 	color: vec4<f32>,
 };
 
@@ -61,7 +61,7 @@ fn perlinNoise2(P: vec2<f32>) -> f32 {
 }
 
 @group(1) @binding(0)
-var<uniform> material: RedMaterial;
+var<uniform> material: PerlinNoiseMaterial;
 
 @fragment
 fn fragment(

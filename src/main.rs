@@ -1,8 +1,9 @@
 use bevy::{
+    input::mouse::MouseMotion,
     prelude::*,
     reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
-    window::PrimaryWindow, input::mouse::MouseMotion,
+    window::PrimaryWindow,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
@@ -15,22 +16,21 @@ struct OrbitCamera {
 }
 
 #[derive(Component)]
-struct FpsCamera { }
-
+struct FpsCamera {}
 
 #[derive(Component)]
 struct TheCube;
 
 #[derive(AsBindGroup, TypeUuid, Clone)]
 #[uuid = "e6c67ca5-2f13-4fc1-8a29-f6c99dfaf16e"]
-pub struct RedMaterial {
+pub struct PerlinNoiseMaterial {
     #[uniform(0)]
     color: Color,
 }
 
-impl Material for RedMaterial {
+impl Material for PerlinNoiseMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/red_material.wgsl".into()
+        "shaders/perlin_noise_material.wgsl".into()
     }
 }
 
@@ -40,7 +40,7 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(WorldInspectorPlugin::new())
-        .add_plugin(MaterialPlugin::<RedMaterial>::default())
+        .add_plugin(MaterialPlugin::<PerlinNoiseMaterial>::default())
         .add_startup_system(setup)
         .add_system(apply_kb_thrust)
         .add_system(aim_camera_cube)
@@ -53,11 +53,11 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut custom_materials: ResMut<Assets<RedMaterial>>,
+    mut custom_materials: ResMut<Assets<PerlinNoiseMaterial>>,
     assets: Res<AssetServer>,
 ) {
     //TEMP Custom material test
-    let material = custom_materials.add(RedMaterial { color: Color::BLUE });
+    let material = custom_materials.add(PerlinNoiseMaterial { color: Color::BLUE });
 
     //Clear color
     commands.insert_resource(ClearColor(Color::ALICE_BLUE));
@@ -100,13 +100,13 @@ fn setup(
             transform: Transform::from_xyz(3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         })
-        .insert(FpsCamera { });
-        /*
-        .insert(OrbitCamera {
-            distance: 5.0,
-            y_angle: 0.0,
-        });
-        */
+        .insert(FpsCamera {});
+    /*
+    .insert(OrbitCamera {
+        distance: 5.0,
+        y_angle: 0.0,
+    });
+    */
 
     //Plane
     commands
@@ -269,7 +269,8 @@ fn fps_camera_controls(
         window.cursor.visible = true;
     }
 
-    let cursor_locked = window.cursor.grab_mode == CursorGrabMode::Confined || window.cursor.grab_mode == CursorGrabMode::Locked;
+    let cursor_locked = window.cursor.grab_mode == CursorGrabMode::Confined
+        || window.cursor.grab_mode == CursorGrabMode::Locked;
     if cursor_locked {
         let mut mouse_move = Vec2::ZERO;
         for motion_event in ev_motion.into_iter() {
@@ -295,23 +296,23 @@ fn fps_camera_controls(
         }
 
         let move_speed = 0.05;
+        let mut move_direction = Vec3::new(0.0, 0.0, 0.0);
         if keys.pressed(KeyCode::A) {
-            let move_direction = camera_transform.local_x();
-            camera_transform.translation += move_direction * -move_speed;
+            move_direction -= camera_transform.local_x();
         }
         if keys.pressed(KeyCode::D) {
-            let move_direction = camera_transform.local_x();
-            camera_transform.translation += move_direction * move_speed;
+            move_direction += camera_transform.local_x();
         }
         if keys.pressed(KeyCode::S) {
-            let move_direction = camera_transform.local_z();
-            camera_transform.translation += move_direction * move_speed;
+            move_direction += camera_transform.local_z();
         }
         if keys.pressed(KeyCode::W) {
-            let move_direction = camera_transform.local_z();
-            camera_transform.translation += move_direction * -move_speed;
+            move_direction -= camera_transform.local_z();
         }
 
+        if move_direction.length_squared() > 0.0 {
+            camera_transform.translation += move_direction.normalize() * move_speed;
+        }
     }
 
     ev_motion.clear();
