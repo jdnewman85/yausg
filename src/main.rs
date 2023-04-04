@@ -297,17 +297,23 @@ fn fps_camera_controls(
 
         let move_speed = 0.05;
         let mut move_direction = Vec3::new(0.0, 0.0, 0.0);
-        if keys.pressed(KeyCode::A) {
+        if keys.pressed(KeyCode::S) {
             move_direction -= camera_transform.local_x();
         }
-        if keys.pressed(KeyCode::D) {
+        if keys.pressed(KeyCode::F) {
             move_direction += camera_transform.local_x();
         }
-        if keys.pressed(KeyCode::S) {
+        if keys.pressed(KeyCode::D) {
             move_direction += camera_transform.local_z();
         }
-        if keys.pressed(KeyCode::W) {
+        if keys.pressed(KeyCode::E) {
             move_direction -= camera_transform.local_z();
+        }
+        if keys.pressed(KeyCode::Space) {
+            move_direction += camera_transform.local_y();
+        }
+        if keys.pressed(KeyCode::Z) {
+            move_direction -= camera_transform.local_y();
         }
 
         if move_direction.length_squared() > 0.0 {
