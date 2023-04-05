@@ -316,9 +316,7 @@ fn fps_camera_controls(
             move_direction -= camera_transform.local_y();
         }
 
-        if move_direction.length_squared() > 0.0 {
-            camera_transform.translation += move_direction.normalize() * move_speed;
-        }
+        camera_transform.translation += move_direction.normalize_or_zero() * move_speed;
     }
 
     ev_motion.clear();
