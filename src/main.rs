@@ -70,7 +70,7 @@ fn setup(
 
     commands.spawn(SpotLightBundle {
         transform: Transform::from_xyz(-1.0, 2.0, 0.0)
-            .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+            .looking_at(Vec3::NEG_X, Vec3::Z),
         spot_light: SpotLight {
             intensity: 1600.0,
             color: Color::WHITE,
@@ -135,7 +135,7 @@ fn setup(
     let gltf = assets.load("models/not-cube/not-cube.gltf#Scene0");
     commands.spawn(SceneBundle {
         scene: gltf,
-        transform: Transform::from_xyz(-2.0, 0.0, -2.0).with_scale(Vec3::new(0.25, 0.25, 0.25)),
+        transform: Transform::from_xyz(-2.0, 0.0, -2.0).with_scale(Vec3::splat(0.25)),
         ..default()
     });
 }
@@ -296,7 +296,7 @@ fn fps_camera_controls(
         }
 
         let move_speed = 0.05;
-        let mut move_direction = Vec3::new(0.0, 0.0, 0.0);
+        let mut move_direction = Vec3::ZERO;
         if keys.pressed(KeyCode::S) {
             move_direction -= camera_transform.local_x();
         }
