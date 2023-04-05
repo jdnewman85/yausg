@@ -97,16 +97,21 @@ fn setup(
     //Camera
     commands
         .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         })
-        .insert(FpsCamera {});
+        .insert(FpsCamera {})
+
     /*
     .insert(OrbitCamera {
         distance: 5.0,
         y_angle: 0.0,
     });
     */
+
+        .insert(RigidBody::KinematicPositionBased)
+        .insert(Collider::ball(0.5))
+        .insert(KinematicCharacterController::default());
 
     //Plane
     commands
@@ -254,9 +259,11 @@ fn fps_camera_controls(
     mut ev_motion: EventReader<MouseMotion>,
     mouse_buttons: Res<Input<MouseButton>>,
     keys: Res<Input<KeyCode>>,
+    mut controllers: Query<&mut KinematicCharacterController>,
 ) {
     let Ok(mut window) = window_query.get_single_mut() else { return };
     let Ok((_camera, mut camera_transform)) = camera_query.get_single_mut() else { return };
+    let Ok(mut controller) = controllers.get_single_mut() else { return };
 
     if mouse_buttons.just_pressed(MouseButton::Left) {
         window.cursor.grab_mode = CursorGrabMode::Confined;
@@ -295,7 +302,8 @@ fn fps_camera_controls(
             camera_transform.rotation = camera_transform.rotation * pitch; // rotate around local x axis
         }
 
-        let move_speed = 0.05;
+        //let move_speed = 0.05;
+        let move_speed = 0.2;
         let mut move_direction = Vec3::ZERO;
         if keys.pressed(KeyCode::S) {
             move_direction -= camera_transform.local_x();
@@ -316,8 +324,22 @@ fn fps_camera_controls(
             move_direction -= camera_transform.local_y();
         }
 
-        camera_transform.translation += move_direction.normalize_or_zero() * move_speed;
+        //camera_transform.translation += move_direction.normalize_or_zero() * move_speed;
+
+        let fake_gravity = Vec3::Y * -0.1;
+        let move_vec = (move_direction.normalize_or_zero() * move_speed) + fake_gravity;
+
+        controller.translation = Some(move_vec);
     }
 
     ev_motion.clear();
 }
+
+/*
+fn update_physics_character(
+    mut controllers: Query<&mut KinematicCharacterController>,
+) {
+    let Ok(mut controller) = controllers.get_single_mut() else { return };
+    controller.translation = Some(Vec3::new(0.0, -0.1, 0.0));
+}
+*/
