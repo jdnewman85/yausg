@@ -15,8 +15,10 @@ struct OrbitCamera {
     y_angle: f32,
 }
 
-#[derive(Component)]
-struct FpsCamera {}
+#[derive(Component, Reflect)]
+struct FpsCamera {
+    old_position: Vec3,
+}
 
 #[derive(Component)]
 struct TheCube;
@@ -46,6 +48,7 @@ fn main() {
         .add_system(aim_camera_cube)
         .add_system(raycast_system)
         .add_system(fps_camera_controls)
+        .register_type::<FpsCamera>()
         .run();
 }
 
@@ -100,7 +103,7 @@ fn setup(
             transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         })
-        .insert(FpsCamera {})
+        .insert(FpsCamera {old_position: Vec3::ONE})
 
     /*
     .insert(OrbitCamera {
@@ -116,12 +119,12 @@ fn setup(
     //Plane
     commands
         .spawn(MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane::from_size(10.0))),
+            mesh: meshes.add(Mesh::from(shape::Plane::from_size(1000.0))),
             material,
             transform: Transform::from_xyz(0.0, -2.0, 0.0),
             ..default()
         })
-        .insert(Collider::cuboid(5.0, 0.1, 5.0));
+        .insert(Collider::cuboid(500.0, 0.1, 500.0));
 
     //Cube
     commands
@@ -255,14 +258,15 @@ fn raycast_system(
 use bevy::window::CursorGrabMode;
 fn fps_camera_controls(
     mut window_query: Query<&mut Window, With<PrimaryWindow>>,
-    mut camera_query: Query<(&FpsCamera, &mut Transform)>,
+    mut camera_query: Query<(&mut FpsCamera, &mut Transform)>,
     mut ev_motion: EventReader<MouseMotion>,
     mouse_buttons: Res<Input<MouseButton>>,
     keys: Res<Input<KeyCode>>,
     mut controllers: Query<&mut KinematicCharacterController>,
+    time: Res<Time>,
 ) {
     let Ok(mut window) = window_query.get_single_mut() else { return };
-    let Ok((_camera, mut camera_transform)) = camera_query.get_single_mut() else { return };
+    let Ok((mut camera, mut camera_transform)) = camera_query.get_single_mut() else { return };
     let Ok(mut controller) = controllers.get_single_mut() else { return };
 
     if mouse_buttons.just_pressed(MouseButton::Left) {
@@ -326,8 +330,18 @@ fn fps_camera_controls(
 
         //camera_transform.translation += move_direction.normalize_or_zero() * move_speed;
 
-        let fake_gravity = Vec3::Y * -0.1;
-        let move_vec = (move_direction.normalize_or_zero() * move_speed) + fake_gravity;
+        let gravity = Vec3::Y * -9.8;
+
+        //Integrate velocity
+        let acceleration = gravity;
+        if keys.pressed(KeyCode::Space) {
+            camera.old_position -= Vec3::new(0.0, -30.0, 0.0);
+        }
+        let velocity = (camera.old_position-camera_transform.translation) + acceleration * time.delta_seconds();
+        camera.old_position = camera_transform.translation;
+
+        let mut move_vec = move_direction.normalize_or_zero() * move_speed * time.delta_seconds();
+        move_vec += velocity;
 
         controller.translation = Some(move_vec);
     }
