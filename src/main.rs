@@ -6,7 +6,10 @@ use bevy::{
     window::PrimaryWindow,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_rapier3d::prelude::*;
+use bevy_rapier3d::{
+    prelude::*,
+    rapier::prelude::{JointAxesMask, JointAxis},
+};
 use std::f32::consts::PI;
 
 #[derive(Component)]
@@ -20,6 +23,9 @@ struct FpsCamera {}
 
 #[derive(Component)]
 struct TheCube;
+
+#[derive(Component)]
+struct Vehicle;
 
 #[derive(AsBindGroup, TypeUuid, Clone)]
 #[uuid = "e6c67ca5-2f13-4fc1-8a29-f6c99dfaf16e"]
@@ -60,7 +66,7 @@ fn setup(
     let material = custom_materials.add(PerlinNoiseMaterial { color: Color::BLUE });
 
     //Clear color
-    commands.insert_resource(ClearColor(Color::ALICE_BLUE));
+    commands.insert_resource(ClearColor(Color::CYAN));
 
     //Light
     commands.insert_resource(AmbientLight {
@@ -69,8 +75,7 @@ fn setup(
     });
 
     commands.spawn(SpotLightBundle {
-        transform: Transform::from_xyz(-1.0, 2.0, 0.0)
-            .looking_at(Vec3::NEG_X, Vec3::Z),
+        transform: Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::NEG_X, Vec3::Z),
         spot_light: SpotLight {
             intensity: 1600.0,
             color: Color::WHITE,
@@ -94,26 +99,19 @@ fn setup(
         ..default()
     });
 
-    //Camera
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..Default::default()
-        })
-        .insert(FpsCamera {});
     //Plane
     commands
         .spawn(MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane::from_size(10.0))),
+            mesh: meshes.add(Mesh::from(shape::Plane::from_size(100.0))),
             material,
-            transform: Transform::from_xyz(0.0, -2.0, 0.0),
+            transform: Transform::from_xyz(0.0, -1.0, 0.0),
             ..default()
         })
-        .insert(Collider::cuboid(5.0, 0.1, 5.0));
+        .insert(Collider::cuboid(500.0, 0.001, 500.0));
 
     //Cube
     commands
-        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)))
+        .spawn_empty()
         .insert(RigidBody::Dynamic)
         .insert(Collider::cuboid(0.5, 0.5, 0.5))
         .insert(Restitution::coefficient(0.7))
@@ -122,7 +120,20 @@ fn setup(
             material: materials.add(Color::rgb(1.0, 1.0, 1.0).into()),
             ..default()
         })
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)))
         .insert(TheCube);
+
+    let vehicle_spawn_position = Vec3::new(30.0, 7.0, 1.0);
+    let _vehicle = spawn_vehicle(&mut commands, meshes, materials, vehicle_spawn_position); // TODO Take spawn position
+
+    //Camera
+    commands
+        .spawn(Camera3dBundle {
+            transform: Transform::from_xyz(1.0, 1.0, 1.0)
+                .looking_at(vehicle_spawn_position, Vec3::Y),
+            ..Default::default()
+        })
+        .insert(FpsCamera {});
 
     //gltf
     let gltf = assets.load("models/not-cube/not-cube.gltf#Scene0");
@@ -131,6 +142,107 @@ fn setup(
         transform: Transform::from_xyz(-2.0, 0.0, -2.0).with_scale(Vec3::splat(0.25)),
         ..default()
     });
+}
+
+fn spawn_vehicle(
+    commands: &mut Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    spawn_position: Vec3,
+) -> Entity {
+    let width = 4.0; // x
+    let hw = width / 2.0;
+    let height = 1.0; // y
+    let hh = height / 2.0;
+    let length = 10.0; // z
+    let hl = length / 2.0;
+
+    let color = Color::rgb(1.0, 0.2, 0.2);
+
+    //Vehicle
+    let vehicle = commands
+        .spawn_empty()
+        .insert(RigidBody::Dynamic)
+        .insert(Collider::cuboid(hw, hh, hl))
+        .insert(Restitution::coefficient(0.7))
+        .insert(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Box {
+                min_x: -hw,
+                max_x: hw,
+                min_y: -hh,
+                max_y: hh,
+                min_z: -hl,
+                max_z: hl,
+            })),
+            material: materials.add(color.into()),
+            ..default()
+        })
+        .insert(SpatialBundle::from_transform(Transform::from_translation(
+            spawn_position,
+        )))
+        .insert(Vehicle)
+        .id();
+
+    //Wheels
+    let wheel_radius = 3.0;
+    let wheel_thickness = 0.5;
+    let hwt = wheel_thickness / 2.0;
+    let wheel_color = Color::rgb(0.2, 0.2, 0.2);
+
+    let wheel_alignments = [
+        ( 1.0,  1.0),
+        ( 1.0, -1.0),
+        (-1.0,  1.0),
+        (-1.0, -1.0),
+    ];
+
+    let _wheels: Vec<_> = wheel_alignments
+        .into_iter()
+        .map(|(x_align, z_align)| {
+            let wheel_x = hw + wheel_thickness;
+            let wheel_y = 0.0;
+            let wheel_z = hl;
+            let wheel_local_position = Vec3::new(wheel_x * x_align, wheel_y, wheel_z * z_align);
+            let wheel_position = spawn_position + wheel_local_position;
+
+            //Joint
+            let joint = GenericJointBuilder::new(JointAxesMask::LOCKED_REVOLUTE_AXES)
+                .local_axis1(Vec3::X)
+                .local_axis2(-Vec3::Y)
+                .local_anchor1(wheel_local_position)
+                .local_anchor2(Vec3::new(0.0, 0.0, 0.0))
+                .motor_velocity(JointAxis::AngX, 10.0, 0.5);
+//                .set_motor(JointAxis::AngX, 0.0, 10.0, 100.0, 0.0);
+
+            let wheel = commands
+                .spawn_empty()
+                .insert(RigidBody::Dynamic)
+                .insert(Collider::cylinder(hwt, wheel_radius))
+                .insert(Restitution::coefficient(0.7))
+                .insert(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Cylinder {
+                        radius: wheel_radius,
+                        height: wheel_thickness,
+                        resolution: 20,
+                        segments: 5,
+                    })),
+                    material: materials.add(wheel_color.into()),
+                    ..default()
+                })
+                .insert(ImpulseJoint::new(vehicle, joint))
+                .insert(SpatialBundle::from_transform(
+                    Transform::from_translation(wheel_position)
+                        .with_rotation(Quat::from_rotation_z(90f32.to_radians())),
+                ))
+                .id();
+
+            wheel
+        })
+        .collect();
+
+    //commands.entity(vehicle).push_children(&wheels); //BUG This seems to not work with rapier
+
+    vehicle
 }
 
 fn apply_kb_thrust(
@@ -315,4 +427,3 @@ fn fps_camera_controls(
 
     ev_motion.clear();
 }
-
