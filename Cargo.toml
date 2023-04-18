@@ -9,8 +9,13 @@ edition = "2021"
 bevy = "0.10.1"
 bevy-inspector-egui = "0.18.3"
 #Gone? bevy-inspector-egui-rapier = { version = "0.10.0", features = ["rapier3d"] }
-bevy_rapier3d = { version = "0.21.0", features = ["simd-stable", "debug-render" ] }
 rand = "0.8.5"
+
+[target.'cfg(not(target_arch="wasm32"))'.dependencies]
+bevy_rapier3d = { version = "0.21.0", features = ["simd-stable", "debug-render", "parallel" ] }
+
+[target.'cfg(target_arch="wasm32")'.dependencies]
+bevy_rapier3d = { version = "0.21.0", features = ["simd-stable", "debug-render"] }
 
 # Bevy optimization settings
 # in `Cargo.toml` or `.cargo/config.toml`
