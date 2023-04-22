@@ -22,7 +22,7 @@ struct OrbitCamera {
 struct FpsCamera {}
 
 #[derive(Component)]
-struct TheCube;
+struct OrbitalTarget;
 
 #[derive(Component)]
 struct Vehicle;
@@ -49,9 +49,9 @@ fn main() {
         .add_plugin(MaterialPlugin::<PerlinNoiseMaterial>::default())
         .add_startup_system(setup)
         .add_system(apply_kb_thrust)
-        .add_system(aim_camera_cube)
+        .add_system(orbital_camera_system)
         .add_system(raycast_system)
-        .add_system(fps_camera_controls)
+//        .add_system(fps_camera_controls)
         .run();
 }
 
@@ -120,11 +120,11 @@ fn setup(
             material: materials.add(Color::rgb(1.0, 1.0, 1.0).into()),
             ..default()
         })
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)))
-        .insert(TheCube);
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)));
 
     let vehicle_spawn_position = Vec3::new(30.0, 7.0, 1.0);
-    let _vehicle = spawn_vehicle(&mut commands, meshes, materials, vehicle_spawn_position); // TODO Take spawn position
+    let vehicle = spawn_vehicle(&mut commands, meshes, materials, vehicle_spawn_position); // TODO Take spawn position
+    commands.entity(vehicle).insert(OrbitalTarget);
 
     //Camera
     commands
@@ -133,7 +133,11 @@ fn setup(
                 .looking_at(vehicle_spawn_position, Vec3::Y),
             ..Default::default()
         })
-        .insert(FpsCamera {});
+//        .insert(FpsCamera {});
+        .insert(OrbitCamera {
+            distance: 25.0,
+            y_angle: 0.0,
+        });
 
     //gltf
     let gltf = assets.load("models/not-cube/not-cube.gltf#Scene0");
@@ -206,13 +210,12 @@ fn spawn_vehicle(
             let wheel_position = spawn_position + wheel_local_position;
 
             //Joint
-            let joint = GenericJointBuilder::new(JointAxesMask::LOCKED_REVOLUTE_AXES)
+            let joint_builder = GenericJointBuilder::new(JointAxesMask::LOCKED_REVOLUTE_AXES)
                 .local_axis1(Vec3::X)
                 .local_axis2(-Vec3::Y)
                 .local_anchor1(wheel_local_position)
-                .local_anchor2(Vec3::new(0.0, 0.0, 0.0))
-                .motor_velocity(JointAxis::AngX, 10.0, 0.5);
-//                .set_motor(JointAxis::AngX, 0.0, 10.0, 100.0, 0.0);
+                .local_anchor2(Vec3::new(0.0, 0.0, 0.0));
+//                .motor_velocity(JointAxis::AngX, 10.0, 0.5);
 
             let wheel = commands
                 .spawn_empty()
@@ -229,7 +232,7 @@ fn spawn_vehicle(
                     material: materials.add(wheel_color.into()),
                     ..default()
                 })
-                .insert(ImpulseJoint::new(vehicle, joint))
+                .insert(ImpulseJoint::new(vehicle, joint_builder))
                 .insert(SpatialBundle::from_transform(
                     Transform::from_translation(wheel_position)
                         .with_rotation(Quat::from_rotation_z(90f32.to_radians())),
@@ -240,7 +243,7 @@ fn spawn_vehicle(
         })
         .collect();
 
-    //commands.entity(vehicle).push_children(&wheels); //BUG This seems to not work with rapier
+    //commands.entity(vehicle).push_children(&wheels); //BUG This seems to not work with rapier?
 
     vehicle
 }
@@ -260,35 +263,35 @@ fn apply_kb_thrust(
     }
 }
 
-fn aim_camera_cube(
+fn orbital_camera_system(
     keys: Res<Input<KeyCode>>,
-    cube_query: Query<&Transform, (With<TheCube>, Without<OrbitCamera>)>,
+    orbital_target_query: Query<&Transform, (With<OrbitalTarget>, Without<OrbitCamera>)>,
     mut camera_query: Query<(&mut Transform, &mut OrbitCamera)>,
 ) {
-    let Ok(cube_transform) = cube_query.get_single() else { return };
+    let Ok(orbital_target) = orbital_target_query.get_single() else { return };
     let Ok((mut transform, mut camera)) = camera_query.get_single_mut() else { return };
 
-    if keys.pressed(KeyCode::A) {
+    if keys.pressed(KeyCode::S) {
         camera.y_angle -= 0.05;
     }
-    if keys.pressed(KeyCode::D) {
+    if keys.pressed(KeyCode::F) {
         camera.y_angle += 0.05;
     }
-    if keys.pressed(KeyCode::S) {
+    if keys.pressed(KeyCode::E) {
         camera.distance -= 0.5;
     }
-    if keys.pressed(KeyCode::W) {
+    if keys.pressed(KeyCode::D) {
         camera.distance += 0.5;
     }
 
-    let cube_position = cube_transform.translation;
-    let start_position = cube_position + Vec3::new(camera.distance, 0.0, 0.0);
+    let target_position = orbital_target.translation;
+    let start_position = target_position + Vec3::new(camera.distance, 0.0, 0.0);
     let mut camera_transform = Transform::from_translation(start_position);
     camera_transform.translate_around(
-        cube_position,
+        target_position,
         Quat::from_euler(EulerRot::YXZ, camera.y_angle, 0.0, PI / 4.0),
     );
-    *transform = camera_transform.looking_at(cube_transform.translation, Vec3::Y);
+    *transform = camera_transform.looking_at(orbital_target.translation, Vec3::Y);
 }
 
 //TODO Should factor out the raycast into a failable function
@@ -298,7 +301,7 @@ fn raycast(
     rapier_context: Res<RapierContext>,
 
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut cube_query: Query<(Entity, &Handle<StandardMaterial>), With<TheCube>>,
+    mut orbital_target_query: Query<(Entity, &Handle<StandardMaterial>), With<OrbitalTarget>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) -> Option<()> {
     if !mouse_buttons.just_pressed(MouseButton::Left) {
@@ -321,8 +324,8 @@ fn raycast(
     //let ray_hit_position = cursor_ray.origin + cursor_ray.direction * toi;
     //println!("Entity {:?} @ {}", entity, ray_hit_position);
 
-    for (cube_entity, cube_material_handle) in cube_query.iter_mut() {
-        if entity != cube_entity {
+    for (target_entity, cube_material_handle) in orbital_target_query.iter_mut() {
+        if entity != target_entity {
             continue;
         };
 
@@ -339,7 +342,7 @@ fn raycast_system(
     rapier_context: Res<RapierContext>,
 
     window_query: Query<&Window, With<PrimaryWindow>>,
-    cube_query: Query<(Entity, &Handle<StandardMaterial>), With<TheCube>>,
+    orbital_target_query: Query<(Entity, &Handle<StandardMaterial>), With<OrbitalTarget>>,
     materials: ResMut<Assets<StandardMaterial>>,
 ) {
     raycast(
@@ -347,7 +350,7 @@ fn raycast_system(
         mouse_buttons,
         rapier_context,
         window_query,
-        cube_query,
+        orbital_target_query,
         materials,
     );
 }
