@@ -108,7 +108,11 @@ fn setup(
             transform: Transform::from_xyz(0.0, -1.0, 0.0),
             ..default()
         })
-        .insert(Collider::cuboid(500.0, 0.001, 500.0));
+        .insert(Collider::cuboid(500.0, 0.001, 500.0))
+        .insert(Friction {
+            coefficient: 1.0,
+            combine_rule: CoefficientCombineRule::Max,
+        });
 
     //Cube
     commands
@@ -233,6 +237,10 @@ fn spawn_vehicle(
                     Transform::from_translation(wheel_position)
                         .with_rotation(Quat::from_rotation_z(90f32.to_radians())),
                 ))
+                .insert(Friction {
+                    coefficient: 1.0,
+                    combine_rule: CoefficientCombineRule::Max,
+                })
                 .id();
 
             wheel
@@ -254,13 +262,19 @@ fn kb_motor(
         for mut joint_handle in joint_query.iter_mut() {
             joint_handle
                 .data
-                .set_motor_velocity(JointAxis::AngX, 10.0, 0.5);
+                .set_motor_velocity(JointAxis::AngX, 15.0, 0.5);
+        }
+    } else if keys.pressed(KeyCode::Z) {
+        for mut joint_handle in joint_query.iter_mut() {
+            joint_handle
+                .data
+                .set_motor_velocity(JointAxis::AngX, -15.0, 0.5);
         }
     } else {
         for mut joint_handle in joint_query.iter_mut() {
             joint_handle
                 .data
-                .set_motor_velocity(JointAxis::AngX, 00.0, 0.5);
+                .set_motor_velocity(JointAxis::AngX, 00.0, 1.0);
         }
     }
 }
