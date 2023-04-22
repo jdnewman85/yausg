@@ -51,7 +51,8 @@ fn main() {
         .add_system(apply_kb_thrust)
         .add_system(orbital_camera_system)
         .add_system(raycast_system)
-//        .add_system(fps_camera_controls)
+        .add_system(kb_motor)
+        //        .add_system(fps_camera_controls)
         .run();
 }
 
@@ -133,7 +134,7 @@ fn setup(
                 .looking_at(vehicle_spawn_position, Vec3::Y),
             ..Default::default()
         })
-//        .insert(FpsCamera {});
+        //        .insert(FpsCamera {});
         .insert(OrbitCamera {
             distance: 25.0,
             y_angle: 0.0,
@@ -193,12 +194,7 @@ fn spawn_vehicle(
     let hwt = wheel_thickness / 2.0;
     let wheel_color = Color::rgb(0.2, 0.2, 0.2);
 
-    let wheel_alignments = [
-        ( 1.0,  1.0),
-        ( 1.0, -1.0),
-        (-1.0,  1.0),
-        (-1.0, -1.0),
-    ];
+    let wheel_alignments = [(1.0, 1.0), (1.0, -1.0), (-1.0, 1.0), (-1.0, -1.0)];
 
     let _wheels: Vec<_> = wheel_alignments
         .into_iter()
@@ -215,7 +211,7 @@ fn spawn_vehicle(
                 .local_axis2(-Vec3::Y)
                 .local_anchor1(wheel_local_position)
                 .local_anchor2(Vec3::new(0.0, 0.0, 0.0));
-//                .motor_velocity(JointAxis::AngX, 10.0, 0.5);
+            //                .motor_velocity(JointAxis::AngX, 10.0, 0.5);
 
             let wheel = commands
                 .spawn_empty()
@@ -246,6 +242,27 @@ fn spawn_vehicle(
     //commands.entity(vehicle).push_children(&wheels); //BUG This seems to not work with rapier?
 
     vehicle
+}
+
+fn kb_motor(
+    keys: Res<Input<KeyCode>>,
+    //    mut joints: ResMut<ImpulseJointSet>,
+    //    joint_query: Query<(&RapierImpulseJointHandle, &mut ImpulseJoint)>,
+    mut joint_query: Query<&mut ImpulseJoint>,
+) {
+    if keys.pressed(KeyCode::Space) {
+        for mut joint_handle in joint_query.iter_mut() {
+            joint_handle
+                .data
+                .set_motor_velocity(JointAxis::AngX, 10.0, 0.5);
+        }
+    } else {
+        for mut joint_handle in joint_query.iter_mut() {
+            joint_handle
+                .data
+                .set_motor_velocity(JointAxis::AngX, 00.0, 0.5);
+        }
+    }
 }
 
 fn apply_kb_thrust(
