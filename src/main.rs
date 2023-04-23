@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
-    window::PrimaryWindow,
+    window::PrimaryWindow, sprite::MaterialMesh2dBundle, core_pipeline::clear_color::ClearColorConfig,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::{
@@ -60,6 +60,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials2d: ResMut<Assets<ColorMaterial>>,
     mut custom_materials: ResMut<Assets<PerlinNoiseMaterial>>,
     assets: Res<AssetServer>,
 ) {
@@ -128,12 +129,16 @@ fn setup(
         .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)));
 
     let vehicle_spawn_position = Vec3::new(30.0, 7.0, 1.0);
-    let vehicle = spawn_vehicle(&mut commands, meshes, materials, vehicle_spawn_position); // TODO Take spawn position
+    let vehicle = spawn_vehicle(&mut commands, &mut meshes, materials, vehicle_spawn_position); // TODO Take spawn position
     commands.entity(vehicle).insert(OrbitalTarget);
 
     //Camera
     commands
         .spawn(Camera3dBundle {
+            camera: Camera {
+                order: 0,
+                ..default()
+            },
             transform: Transform::from_xyz(1.0, 1.0, 1.0)
                 .looking_at(vehicle_spawn_position, Vec3::Y),
             ..Default::default()
@@ -143,6 +148,26 @@ fn setup(
             distance: 25.0,
             y_angle: 0.0,
         });
+
+    //UI Camera
+    commands
+        .spawn(Camera2dBundle {
+            camera: Camera {
+                order: 1,
+                ..default()
+            },
+            camera_2d: Camera2d {
+                clear_color: ClearColorConfig::None,
+            },
+            ..default()
+        });
+
+    commands.spawn(MaterialMesh2dBundle {
+        mesh: meshes.add(shape::Circle::new(50.0).into()).into(),
+        material: materials2d.add(Color::PURPLE.into()),
+        transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
+        ..default()
+    });
 
     //gltf
     let gltf = assets.load("models/not-cube/not-cube.gltf#Scene0");
@@ -155,7 +180,7 @@ fn setup(
 
 fn spawn_vehicle(
     commands: &mut Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    meshes: &mut ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     spawn_position: Vec3,
 ) -> Entity {
