@@ -10,7 +10,7 @@ use bevy_rapier3d::{
     prelude::*,
     rapier::prelude::{JointAxesMask, JointAxis},
 };
-use std::f32::consts::PI;
+use std::{f32::consts::PI, ops::Not};
 
 #[derive(Component)]
 struct OrbitCamera {
@@ -55,6 +55,11 @@ fn main() {
         //        .add_system(fps_camera_controls)
         .run();
 }
+
+const STATIC_GROUP: Group = Group::GROUP_1;
+const DYNAMIC_GROUP: Group = Group::GROUP_2;
+const CAR_GROUP: Group = Group::GROUP_10;
+const WHEEL_GROUP: Group = Group::GROUP_11;
 
 fn setup(
     mut commands: Commands,
@@ -113,7 +118,9 @@ fn setup(
         .insert(Friction {
             coefficient: 1.0,
             combine_rule: CoefficientCombineRule::Max,
-        });
+        })
+        .insert(CollisionGroups::new(STATIC_GROUP, Group::all()))
+    ;
 
     //Cube
     commands
@@ -126,11 +133,17 @@ fn setup(
             material: materials.add(Color::rgb(1.0, 1.0, 1.0).into()),
             ..default()
         })
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)));
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)))
+        .insert(CollisionGroups::new(DYNAMIC_GROUP, Group::all()))
+    ;
 
     let vehicle_spawn_position = Vec3::new(30.0, 7.0, 1.0);
     let vehicle = spawn_vehicle(&mut commands, &mut meshes, materials, vehicle_spawn_position); // TODO Take spawn position
-    commands.entity(vehicle).insert(OrbitalTarget);
+    commands
+        .entity(vehicle)
+        .insert(OrbitalTarget)
+        .insert(CollisionGroups::new(CAR_GROUP, CAR_GROUP.union(WHEEL_GROUP).not()))
+    ;
 
     //Camera
     commands
@@ -266,6 +279,7 @@ fn spawn_vehicle(
                     coefficient: 1.0,
                     combine_rule: CoefficientCombineRule::Max,
                 })
+                .insert(CollisionGroups::new(WHEEL_GROUP, CAR_GROUP.union(WHEEL_GROUP).not()))
                 .id();
 
             wheel
