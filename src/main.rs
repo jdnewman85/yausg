@@ -163,7 +163,7 @@ fn setup(
         });
 
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Circle::new(50.0).into()).into(),
+        mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
         material: materials2d.add(Color::PURPLE.into()),
         transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
         ..default()
@@ -352,7 +352,7 @@ fn orbital_camera_system(
 
 //TODO Should factor out the raycast into a failable function
 fn raycast(
-    camera_query: Query<(&Camera, &GlobalTransform)>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     mouse_buttons: Res<Input<MouseButton>>,
     rapier_context: Res<RapierContext>,
 
@@ -393,7 +393,7 @@ fn raycast(
 }
 
 fn raycast_system(
-    camera_query: Query<(&Camera, &GlobalTransform)>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     mouse_buttons: Res<Input<MouseButton>>,
     rapier_context: Res<RapierContext>,
 
