@@ -10,7 +10,7 @@ use bevy_rapier3d::{
     prelude::*,
     rapier::prelude::{JointAxesMask, JointAxis},
 };
-use std::{f32::consts::PI, ops::Not};
+use std::{f32::consts::PI, ops::Not, process::id};
 
 #[derive(Component)]
 struct OrbitCamera {
@@ -284,6 +284,7 @@ fn spawn_vehicle(
                     Transform::from_translation(axel_position)
                 ))
                 .insert(ImpulseJoint::new(vehicle, axel_joint_builder))
+                .id()
             ;
 
 
@@ -310,7 +311,7 @@ fn spawn_vehicle(
                     material: materials.add(wheel_color.into()),
                     ..default()
                 })
-                .insert(ImpulseJoint::new(vehicle, wheel_joint_builder))
+                .insert(ImpulseJoint::new(axel, wheel_joint_builder))
                 .insert(SpatialBundle::from_transform(
                     Transform::from_translation(wheel_position)
                         .with_rotation(Quat::from_rotation_z(90f32.to_radians())),
