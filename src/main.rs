@@ -235,23 +235,63 @@ fn spawn_vehicle(
     let wheel_thickness = 0.5;
     let hwt = wheel_thickness / 2.0;
     let wheel_color = Color::rgb(0.2, 0.2, 0.2);
+    let axel_color = Color::rgb(1.0, 1.0, 1.0);
 
     let wheel_alignments = [(1.0, 1.0), (1.0, -1.0), (-1.0, 1.0), (-1.0, -1.0)];
 
     let _wheels: Vec<_> = wheel_alignments
         .into_iter()
         .map(|(x_align, z_align)| {
-            let wheel_x = hw + wheel_thickness;
-            let wheel_y = 0.0;
-            let wheel_z = hl;
-            let wheel_local_position = Vec3::new(wheel_x * x_align, wheel_y, wheel_z * z_align);
-            let wheel_position = spawn_position + wheel_local_position;
+            let axel_offset = Vec3::new(
+                (hw + wheel_thickness) * x_align,
+                0.0,
+                hl * z_align,
+            );
+            let wheel_offset = Vec3::new(
+                (hw + wheel_thickness) * 2.0 * x_align,
+                0.0,
+                hl * z_align,
+            );
 
-            //Joint
-            let joint_builder = GenericJointBuilder::new(JointAxesMask::LOCKED_REVOLUTE_AXES)
+            let axel_position = spawn_position + axel_offset;
+            let wheel_position = spawn_position + wheel_offset;
+
+            //Axel Joint
+            /*
+            let axel_joint_builder = GenericJointBuilder::new(JointAxesMask::LOCKED_FIXED_AXES)
+                //.local_axis1(Vec3::X)
+                //.local_axis2(-Vec3::Y)
+                .local_anchor1(axel_offset)
+                .local_anchor2(Vec3::new(0.0, 0.0, 0.0));
+            */
+            let axel_joint_builder = FixedJointBuilder::new()
+                .local_anchor1(axel_offset)
+                .local_anchor2(Vec3::new(0.0, 0.0, 0.0))
+            ;
+
+            //Axel
+            let axel = commands
+                .spawn_empty()
+                .insert(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+                    material: materials.add(axel_color.into()),
+                    ..default()
+                })
+                .insert(RigidBody::Dynamic)
+                .insert(Collider::cuboid(0.05, 0.05, 0.05))
+                .insert(CollisionGroups::new(Group::NONE, Group::NONE))
+                .insert(SpatialBundle::from_transform(
+                    Transform::from_translation(axel_position)
+                ))
+                .insert(ImpulseJoint::new(vehicle, axel_joint_builder))
+            ;
+
+
+            //Wheel Joint
+            let wheel_joint_builder = GenericJointBuilder::new(JointAxesMask::LOCKED_REVOLUTE_AXES)
                 .local_axis1(Vec3::X)
                 .local_axis2(-Vec3::Y)
-                .local_anchor1(wheel_local_position)
+                .local_anchor1(wheel_offset)
                 .local_anchor2(Vec3::new(0.0, 0.0, 0.0));
             //                .motor_velocity(JointAxis::AngX, 10.0, 0.5);
 
@@ -270,7 +310,7 @@ fn spawn_vehicle(
                     material: materials.add(wheel_color.into()),
                     ..default()
                 })
-                .insert(ImpulseJoint::new(vehicle, joint_builder))
+                .insert(ImpulseJoint::new(vehicle, wheel_joint_builder))
                 .insert(SpatialBundle::from_transform(
                     Transform::from_translation(wheel_position)
                         .with_rotation(Quat::from_rotation_z(90f32.to_radians())),
@@ -298,20 +338,20 @@ fn kb_motor(
     mut joint_query: Query<&mut ImpulseJoint>,
 ) {
     if keys.pressed(KeyCode::Space) {
-        for mut joint_handle in joint_query.iter_mut() {
-            joint_handle
+        for mut joint in joint_query.iter_mut() {
+            joint
                 .data
                 .set_motor_velocity(JointAxis::AngX, 15.0, 0.5);
         }
     } else if keys.pressed(KeyCode::Z) {
-        for mut joint_handle in joint_query.iter_mut() {
-            joint_handle
+        for mut joint in joint_query.iter_mut() {
+            joint
                 .data
                 .set_motor_velocity(JointAxis::AngX, -15.0, 0.5);
         }
     } else {
-        for mut joint_handle in joint_query.iter_mut() {
-            joint_handle
+        for mut joint in joint_query.iter_mut() {
+            joint
                 .data
                 .set_motor_velocity(JointAxis::AngX, 00.0, 1.0);
         }
