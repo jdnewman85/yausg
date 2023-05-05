@@ -1,16 +1,18 @@
 use bevy::{
+    core_pipeline::clear_color::ClearColorConfig,
     input::mouse::MouseMotion,
     prelude::*,
     reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
-    window::PrimaryWindow, sprite::MaterialMesh2dBundle, core_pipeline::clear_color::ClearColorConfig,
+    sprite::MaterialMesh2dBundle,
+    window::PrimaryWindow,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::{
     prelude::*,
     rapier::prelude::{JointAxesMask, JointAxis},
 };
-use std::{f32::consts::PI, ops::Not, process::id};
+use std::{f32::consts::PI, ops::Not};
 
 #[derive(Component)]
 struct OrbitCamera {
@@ -26,6 +28,9 @@ struct OrbitalTarget;
 
 #[derive(Component)]
 struct Vehicle;
+
+#[derive(Component)]
+struct WheelMotor;
 
 #[derive(AsBindGroup, TypeUuid, Clone)]
 #[uuid = "e6c67ca5-2f13-4fc1-8a29-f6c99dfaf16e"]
@@ -48,7 +53,7 @@ fn main() {
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(MaterialPlugin::<PerlinNoiseMaterial>::default())
         .add_startup_system(setup)
-        .add_system(apply_kb_thrust)
+        //        .add_system(apply_kb_thrust)
         .add_system(orbital_camera_system)
         .add_system(raycast_system)
         .add_system(kb_motor)
@@ -119,8 +124,7 @@ fn setup(
             coefficient: 1.0,
             combine_rule: CoefficientCombineRule::Max,
         })
-        .insert(CollisionGroups::new(STATIC_GROUP, Group::all()))
-    ;
+        .insert(CollisionGroups::new(STATIC_GROUP, Group::all()));
 
     //Cube
     commands
@@ -134,16 +138,22 @@ fn setup(
             ..default()
         })
         .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)))
-        .insert(CollisionGroups::new(DYNAMIC_GROUP, Group::all()))
-    ;
+        .insert(CollisionGroups::new(DYNAMIC_GROUP, Group::all()));
 
     let vehicle_spawn_position = Vec3::new(30.0, 7.0, 1.0);
-    let vehicle = spawn_vehicle(&mut commands, &mut meshes, materials, vehicle_spawn_position); // TODO Take spawn position
+    let vehicle = spawn_vehicle(
+        &mut commands,
+        &mut meshes,
+        materials,
+        vehicle_spawn_position,
+    ); // TODO Take spawn position
     commands
         .entity(vehicle)
         .insert(OrbitalTarget)
-        .insert(CollisionGroups::new(CAR_GROUP, CAR_GROUP.union(WHEEL_GROUP).not()))
-    ;
+        .insert(CollisionGroups::new(
+            CAR_GROUP,
+            CAR_GROUP.union(WHEEL_GROUP).not(),
+        ));
 
     //Camera
     commands
@@ -163,17 +173,16 @@ fn setup(
         });
 
     //UI Camera
-    commands
-        .spawn(Camera2dBundle {
-            camera: Camera {
-                order: 1,
-                ..default()
-            },
-            camera_2d: Camera2d {
-                clear_color: ClearColorConfig::None,
-            },
+    commands.spawn(Camera2dBundle {
+        camera: Camera {
+            order: 1,
             ..default()
-        });
+        },
+        camera_2d: Camera2d {
+            clear_color: ClearColorConfig::None,
+        },
+        ..default()
+    });
 
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
@@ -242,16 +251,8 @@ fn spawn_vehicle(
     let _wheels: Vec<_> = wheel_alignments
         .into_iter()
         .map(|(x_align, z_align)| {
-            let axel_offset = Vec3::new(
-                (hw + wheel_thickness) * x_align,
-                0.0,
-                hl * z_align,
-            );
-            let wheel_offset = Vec3::new(
-                (hw + wheel_thickness) * 2.0 * x_align,
-                0.0,
-                hl * z_align,
-            );
+            let axel_offset = Vec3::new((hw + wheel_thickness) * 1.5 * x_align, 0.0, hl * z_align);
+            let wheel_offset = Vec3::new((hw + wheel_thickness) * 3.0 * x_align, 0.0, hl * z_align);
 
             let axel_position = spawn_position + axel_offset;
             let wheel_position = spawn_position + wheel_offset;
@@ -264,43 +265,52 @@ fn spawn_vehicle(
                 .local_anchor1(axel_offset)
                 .local_anchor2(Vec3::new(0.0, 0.0, 0.0));
             */
+            //            let axel_offset = Quat::from_rotation_z(90f32.to_radians()) * axel_offset;
             let axel_joint_builder = FixedJointBuilder::new()
-                .local_anchor1(axel_offset)
-                .local_anchor2(Vec3::new(0.0, 0.0, 0.0))
+                .local_anchor1(axel_offset)                                          //parent - vehicle - referenced - (vehicle->axel)
+//                .local_anchor2(Vec3::new(0.0, 0.0, 0.0))                             //child  - axel    - inserted   - (axel center)
             ;
 
             //Axel
             let axel = commands
                 .spawn_empty()
                 .insert(PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                     material: materials.add(axel_color.into()),
                     ..default()
                 })
-                .insert(RigidBody::Dynamic)
-                .insert(Collider::cuboid(0.05, 0.05, 0.05))
-                .insert(CollisionGroups::new(Group::NONE, Group::NONE))
                 .insert(SpatialBundle::from_transform(
-                    Transform::from_translation(axel_position)
+                    Transform::from_translation(axel_position), //                        .with_rotation(Quat::from_rotation_z(90f32.to_radians()))
                 ))
+                .insert(RigidBody::Dynamic)
+                .insert(Collider::cuboid(0.5, 0.5, 0.5))
+                //                .insert(CollisionGroups::new(Group::NONE, Group::NONE))
                 .insert(ImpulseJoint::new(vehicle, axel_joint_builder))
-                .id()
-            ;
-
+                .id();
 
             //Wheel Joint
+            /*
             let wheel_joint_builder = GenericJointBuilder::new(JointAxesMask::LOCKED_REVOLUTE_AXES)
                 .local_axis1(Vec3::X)
                 .local_axis2(-Vec3::Y)
-                .local_anchor1(wheel_offset)
+                .local_anchor1(wheel_offset - axel_offset)
                 .local_anchor2(Vec3::new(0.0, 0.0, 0.0));
             //                .motor_velocity(JointAxis::AngX, 10.0, 0.5);
+            */
+            let anchor_offset = wheel_offset - axel_offset;
+            let test_offset = Quat::from_rotation_z(90f32.to_radians()) * anchor_offset;
+            let wheel_joint_builder = FixedJointBuilder::new()
+                .local_anchor2(Vec3::ZERO) //parent - axel  - referenced
+                //                .local_anchor2(anchor_offset)                                //child  - wheel - inserted
+                .local_anchor1(anchor_offset) //child  - wheel - inserted
+                //                .local_anchor2(-test_offset)                                //child  - wheel - inserted
+                .local_basis1(Quat::from_rotation_z(90f32.to_radians()));
 
             let wheel = commands
                 .spawn_empty()
                 .insert(RigidBody::Dynamic)
                 .insert(Collider::cylinder(hwt, wheel_radius))
-                .insert(Restitution::coefficient(0.7))
+                //                .insert(Restitution::coefficient(0.7))
                 .insert(PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cylinder {
                         radius: wheel_radius,
@@ -311,16 +321,19 @@ fn spawn_vehicle(
                     material: materials.add(wheel_color.into()),
                     ..default()
                 })
-                .insert(ImpulseJoint::new(axel, wheel_joint_builder))
                 .insert(SpatialBundle::from_transform(
                     Transform::from_translation(wheel_position)
                         .with_rotation(Quat::from_rotation_z(90f32.to_radians())),
                 ))
+                .insert(ImpulseJoint::new(axel, wheel_joint_builder))
                 .insert(Friction {
                     coefficient: 1.0,
                     combine_rule: CoefficientCombineRule::Max,
                 })
-                .insert(CollisionGroups::new(WHEEL_GROUP, CAR_GROUP.union(WHEEL_GROUP).not()))
+                .insert(CollisionGroups::new(
+                    WHEEL_GROUP,
+                    CAR_GROUP.union(WHEEL_GROUP).not(),
+                ))
                 .id();
 
             wheel
@@ -334,27 +347,20 @@ fn spawn_vehicle(
 
 fn kb_motor(
     keys: Res<Input<KeyCode>>,
-    //    mut joints: ResMut<ImpulseJointSet>,
-    //    joint_query: Query<(&RapierImpulseJointHandle, &mut ImpulseJoint)>,
-    mut joint_query: Query<&mut ImpulseJoint>,
+    mut joint_query: Query<&mut ImpulseJoint, With<WheelMotor>>,
 ) {
+    //TODO With<WheelMotor> needed?
     if keys.pressed(KeyCode::Space) {
         for mut joint in joint_query.iter_mut() {
-            joint
-                .data
-                .set_motor_velocity(JointAxis::AngX, 15.0, 0.5);
+            joint.data.set_motor_velocity(JointAxis::AngX, 15.0, 0.5);
         }
     } else if keys.pressed(KeyCode::Z) {
         for mut joint in joint_query.iter_mut() {
-            joint
-                .data
-                .set_motor_velocity(JointAxis::AngX, -15.0, 0.5);
+            joint.data.set_motor_velocity(JointAxis::AngX, -15.0, 0.5);
         }
     } else {
         for mut joint in joint_query.iter_mut() {
-            joint
-                .data
-                .set_motor_velocity(JointAxis::AngX, 00.0, 1.0);
+            joint.data.set_motor_velocity(JointAxis::AngX, 00.0, 1.0);
         }
     }
 }
