@@ -21,7 +21,7 @@ struct OrbitCamera {
 }
 
 #[derive(Component)]
-struct FpsCamera {}
+struct GodModeCamera {}
 
 #[derive(Component)]
 struct OrbitalTarget;
@@ -53,11 +53,10 @@ fn main() {
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(MaterialPlugin::<PerlinNoiseMaterial>::default())
         .add_startup_system(setup)
-        //        .add_system(apply_kb_thrust)
         .add_system(orbital_camera_system)
         .add_system(raycast_system)
         .add_system(kb_motor)
-        //        .add_system(fps_camera_controls)
+        //.add_system(god_mode_camera_system)
         .run();
 }
 
@@ -166,7 +165,7 @@ fn setup(
                 .looking_at(vehicle_spawn_position, Vec3::Y),
             ..Default::default()
         })
-        //        .insert(FpsCamera {});
+        //.insert(GodModeCamera {});
         .insert(OrbitCamera {
             distance: 25.0,
             y_angle: 0.0,
@@ -244,73 +243,59 @@ fn spawn_vehicle(
     let wheel_thickness = 0.5;
     let hwt = wheel_thickness / 2.0;
     let wheel_color = Color::rgb(0.2, 0.2, 0.2);
-    let axel_color = Color::rgb(1.0, 1.0, 1.0);
+    let axle_color = Color::rgb(1.0, 1.0, 1.0);
 
     let wheel_alignments = [(1.0, 1.0), (1.0, -1.0), (-1.0, 1.0), (-1.0, -1.0)];
 
     let _wheels: Vec<_> = wheel_alignments
         .into_iter()
         .map(|(x_align, z_align)| {
-            let axel_offset = Vec3::new((hw + wheel_thickness) * 1.5 * x_align, 0.0, hl * z_align);
+            let axle_offset = Vec3::new((hw + wheel_thickness) * 1.5 * x_align, 0.0, hl * z_align);
             let wheel_offset = Vec3::new((hw + wheel_thickness) * 3.0 * x_align, 0.0, hl * z_align);
 
-            let axel_position = spawn_position + axel_offset;
+            let axle_position = spawn_position + axle_offset;
             let wheel_position = spawn_position + wheel_offset;
 
             //Axel Joint
-            /*
-            let axel_joint_builder = GenericJointBuilder::new(JointAxesMask::LOCKED_FIXED_AXES)
+            let axle_joint_builder = GenericJointBuilder::new(JointAxesMask::LOCKED_FIXED_AXES)
                 //.local_axis1(Vec3::X)
                 //.local_axis2(-Vec3::Y)
-                .local_anchor1(axel_offset)
-                .local_anchor2(Vec3::new(0.0, 0.0, 0.0));
-            */
-            //            let axel_offset = Quat::from_rotation_z(90f32.to_radians()) * axel_offset;
-            let axel_joint_builder = FixedJointBuilder::new()
-                .local_anchor1(axel_offset)                                          //parent - vehicle - referenced - (vehicle->axel)
-//                .local_anchor2(Vec3::new(0.0, 0.0, 0.0))                             //child  - axel    - inserted   - (axel center)
+                .local_anchor1(axle_offset)
+                //.local_anchor2(Vec3::new(0.0, 0.0, 0.0))
             ;
 
             //Axel
-            let axel = commands
+            let axle = commands
                 .spawn_empty()
                 .insert(PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-                    material: materials.add(axel_color.into()),
+                    material: materials.add(axle_color.into()),
                     ..default()
                 })
                 .insert(SpatialBundle::from_transform(
-                    Transform::from_translation(axel_position), //                        .with_rotation(Quat::from_rotation_z(90f32.to_radians()))
+                    Transform::from_translation(axle_position),
                 ))
                 .insert(RigidBody::Dynamic)
                 .insert(Collider::cuboid(0.5, 0.5, 0.5))
-                //                .insert(CollisionGroups::new(Group::NONE, Group::NONE))
-                .insert(ImpulseJoint::new(vehicle, axel_joint_builder))
+                .insert(CollisionGroups::new(Group::NONE, Group::NONE))
+                .insert(ImpulseJoint::new(vehicle, axle_joint_builder))
                 .id();
 
             //Wheel Joint
-            /*
+            let motor_max_force = 500.0;
             let wheel_joint_builder = GenericJointBuilder::new(JointAxesMask::LOCKED_REVOLUTE_AXES)
                 .local_axis1(Vec3::X)
                 .local_axis2(-Vec3::Y)
-                .local_anchor1(wheel_offset - axel_offset)
-                .local_anchor2(Vec3::new(0.0, 0.0, 0.0));
-            //                .motor_velocity(JointAxis::AngX, 10.0, 0.5);
-            */
-            let anchor_offset = wheel_offset - axel_offset;
-            let test_offset = Quat::from_rotation_z(90f32.to_radians()) * anchor_offset;
-            let wheel_joint_builder = FixedJointBuilder::new()
-                .local_anchor2(Vec3::ZERO) //parent - axel  - referenced
-                //                .local_anchor2(anchor_offset)                                //child  - wheel - inserted
-                .local_anchor1(anchor_offset) //child  - wheel - inserted
-                //                .local_anchor2(-test_offset)                                //child  - wheel - inserted
-                .local_basis1(Quat::from_rotation_z(90f32.to_radians()));
+                .local_anchor1(wheel_offset - axle_offset)
+                .local_anchor2(Vec3::new(0.0, 0.0, 0.0))
+                .motor_max_force(JointAxis::AngX, motor_max_force)
+            ;
 
             let wheel = commands
                 .spawn_empty()
                 .insert(RigidBody::Dynamic)
                 .insert(Collider::cylinder(hwt, wheel_radius))
-                //                .insert(Restitution::coefficient(0.7))
+                //.insert(Restitution::coefficient(0.7))
                 .insert(PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cylinder {
                         radius: wheel_radius,
@@ -325,7 +310,8 @@ fn spawn_vehicle(
                     Transform::from_translation(wheel_position)
                         .with_rotation(Quat::from_rotation_z(90f32.to_radians())),
                 ))
-                .insert(ImpulseJoint::new(axel, wheel_joint_builder))
+                .insert(ImpulseJoint::new(axle, wheel_joint_builder))
+                .insert(WheelMotor)
                 .insert(Friction {
                     coefficient: 1.0,
                     combine_rule: CoefficientCombineRule::Max,
@@ -340,8 +326,6 @@ fn spawn_vehicle(
         })
         .collect();
 
-    //commands.entity(vehicle).push_children(&wheels); //BUG This seems to not work with rapier?
-
     vehicle
 }
 
@@ -349,34 +333,21 @@ fn kb_motor(
     keys: Res<Input<KeyCode>>,
     mut joint_query: Query<&mut ImpulseJoint, With<WheelMotor>>,
 ) {
-    //TODO With<WheelMotor> needed?
-    if keys.pressed(KeyCode::Space) {
-        for mut joint in joint_query.iter_mut() {
-            joint.data.set_motor_velocity(JointAxis::AngX, 15.0, 0.5);
-        }
-    } else if keys.pressed(KeyCode::Z) {
-        for mut joint in joint_query.iter_mut() {
-            joint.data.set_motor_velocity(JointAxis::AngX, -15.0, 0.5);
-        }
-    } else {
-        for mut joint in joint_query.iter_mut() {
-            joint.data.set_motor_velocity(JointAxis::AngX, 00.0, 1.0);
-        }
-    }
-}
+    let motor_speed = 250.0;
+    let motor_factor = 100.0;
 
-fn apply_kb_thrust(
-    mut commands: Commands,
-    keys: Res<Input<KeyCode>>,
-    mut entities: Query<Entity, With<RigidBody>>,
-) {
-    if keys.pressed(KeyCode::Space) {
-        for entity in entities.iter_mut() {
-            commands.entity(entity).insert(ExternalImpulse {
-                impulse: Vec3::new(0.0, 0.2, 0.0),
-                torque_impulse: Vec3::new(0.01, 0.0, 0.0),
-            });
-        }
+    let throttle_forward = keys.pressed(KeyCode::Space);
+    let throttle_backward = keys.pressed(KeyCode::Z);
+
+    let throttle = match (throttle_forward, throttle_backward) {
+        (true, false) => motor_speed,
+        (false, true) => -motor_speed,
+        _ => 0.0,
+
+    };
+
+    for mut joint in joint_query.iter_mut() {
+        joint.data.set_motor_velocity(JointAxis::AngX, throttle, motor_factor);
     }
 }
 
@@ -473,9 +444,9 @@ fn raycast_system(
 }
 
 use bevy::window::CursorGrabMode;
-fn fps_camera_controls(
+fn god_mode_camera_system(
     mut window_query: Query<&mut Window, With<PrimaryWindow>>,
-    mut camera_query: Query<(&FpsCamera, &mut Transform)>,
+    mut camera_query: Query<(&GodModeCamera, &mut Transform)>,
     mut ev_motion: EventReader<MouseMotion>,
     mouse_buttons: Res<Input<MouseButton>>,
     keys: Res<Input<KeyCode>>,
