@@ -85,34 +85,38 @@ fn setup(
         brightness: 0.00,
     });
 
-    commands.spawn(SpotLightBundle {
-        transform: Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::NEG_X, Vec3::Z),
-        spot_light: SpotLight {
-            intensity: 1600.0,
-            color: Color::WHITE,
-            shadows_enabled: true,
-            inner_angle: 0.6,
-            outer_angle: 0.8,
-            ..default()
-        },
-        ..default()
-    });
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            shadows_enabled: true,
-            ..default()
-        },
-        transform: Transform {
-            translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-PI / 4.0),
-            ..default()
-        },
-        ..default()
-    });
-
-    //Plane
     commands
-        .spawn(MaterialMeshBundle {
+        .spawn(Name::new("Spotlight"))
+        .insert(SpotLightBundle {
+            transform: Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::NEG_X, Vec3::Z),
+            spot_light: SpotLight {
+                intensity: 1600.0,
+                color: Color::WHITE,
+                shadows_enabled: true,
+                inner_angle: 0.6,
+                outer_angle: 0.8,
+                ..default()
+            },
+            ..default()
+        });
+    commands
+        .spawn(Name::new("Directional Light"))
+        .insert(DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                shadows_enabled: true,
+                ..default()
+            },
+            transform: Transform {
+                translation: Vec3::new(0.0, 2.0, 0.0),
+                rotation: Quat::from_rotation_x(-PI / 4.0),
+                ..default()
+            },
+            ..default()
+        });
+
+    commands
+        .spawn(Name::new("Ground Plane"))
+        .insert(MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Plane::from_size(100.0))),
             material,
             transform: Transform::from_xyz(0.0, -1.0, 0.0),
@@ -125,9 +129,8 @@ fn setup(
         })
         .insert(CollisionGroups::new(STATIC_GROUP, Group::all()));
 
-    //Cube
     commands
-        .spawn_empty()
+        .spawn(Name::new("The Cube"))
         .insert(RigidBody::Dynamic)
         .insert(Collider::cuboid(0.5, 0.5, 0.5))
         .insert(Restitution::coefficient(0.7))
@@ -149,14 +152,15 @@ fn setup(
     commands
         .entity(vehicle)
         .insert(OrbitalTarget)
+        //TODO Move into spawn_vehicle
         .insert(CollisionGroups::new(
             CAR_GROUP,
             CAR_GROUP.union(WHEEL_GROUP).not(),
         ));
 
-    //Camera
     commands
-        .spawn(Camera3dBundle {
+        .spawn(Name::new("3D Camera"))
+        .insert(Camera3dBundle {
             camera: Camera {
                 order: 0,
                 ..default()
@@ -171,28 +175,30 @@ fn setup(
             y_angle: 0.0,
         });
 
-    //UI Camera
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
-            order: 1,
+    commands
+        .spawn(Name::new("UI Camera"))
+        .insert(Camera2dBundle {
+            camera: Camera {
+                order: 1,
+                ..default()
+            },
+            camera_2d: Camera2d {
+                clear_color: ClearColorConfig::None,
+            },
             ..default()
-        },
-        camera_2d: Camera2d {
-            clear_color: ClearColorConfig::None,
-        },
-        ..default()
-    });
+        });
 
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
-        material: materials2d.add(Color::PURPLE.into()),
-        transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
-        ..default()
-    });
+    commands
+        .spawn(Name::new("UI Circle"))
+        .insert(MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
+            material: materials2d.add(Color::PURPLE.into()),
+            transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
+            ..default()
+        });
 
-    //gltf
     let gltf = assets.load("models/not-cube/not-cube.gltf#Scene0");
-    commands.spawn(SceneBundle {
+    commands.spawn(Name::new("Not-Cube")).insert(SceneBundle {
         scene: gltf,
         transform: Transform::from_xyz(-2.0, 0.0, -2.0).with_scale(Vec3::splat(0.25)),
         ..default()
@@ -214,9 +220,8 @@ fn spawn_vehicle(
 
     let color = Color::rgb(1.0, 0.2, 0.2);
 
-    //Vehicle
     let vehicle = commands
-        .spawn_empty()
+        .spawn(Name::new("Vehicle"))
         .insert(RigidBody::Dynamic)
         .insert(Collider::cuboid(hw, hh, hl))
         .insert(Restitution::coefficient(0.7))
@@ -264,21 +269,22 @@ fn spawn_vehicle(
                 //.local_anchor2(Vec3::new(0.0, 0.0, 0.0))
             ;
 
-            //Axel
             let axle = commands
-                .spawn_empty()
+                .spawn(Name::new(format!("Axel - {x_align} {z_align}")))
                 .insert(PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                     material: materials.add(axle_color.into()),
                     ..default()
                 })
-                .insert(SpatialBundle::from_transform(
-                    Transform::from_translation(axle_position),
-                ))
+                .insert(SpatialBundle::from_transform(Transform::from_translation(
+                    axle_position,
+                )))
                 .insert(RigidBody::Dynamic)
                 .insert(Collider::cuboid(0.5, 0.5, 0.5))
                 .insert(CollisionGroups::new(Group::NONE, Group::NONE))
                 .insert(ImpulseJoint::new(vehicle, axle_joint_builder))
+                .insert(Sleeping::disabled())
+                .insert(Ccd::enabled())
                 .id();
 
             //Wheel Joint
@@ -288,11 +294,10 @@ fn spawn_vehicle(
                 .local_axis2(-Vec3::Y)
                 .local_anchor1(wheel_offset - axle_offset)
                 .local_anchor2(Vec3::new(0.0, 0.0, 0.0))
-                .motor_max_force(JointAxis::AngX, motor_max_force)
-            ;
+                .motor_max_force(JointAxis::AngX, motor_max_force);
 
             let wheel = commands
-                .spawn_empty()
+                .spawn(Name::new(format!("Wheel - {x_align} {z_align}")))
                 .insert(RigidBody::Dynamic)
                 .insert(Collider::cylinder(hwt, wheel_radius))
                 //.insert(Restitution::coefficient(0.7))
@@ -334,7 +339,7 @@ fn kb_motor(
     mut joint_query: Query<&mut ImpulseJoint, With<WheelMotor>>,
 ) {
     let motor_speed = 250.0;
-    let motor_factor = 100.0;
+    let motor_factor = 1.0;
 
     let throttle_forward = keys.pressed(KeyCode::Space);
     let throttle_backward = keys.pressed(KeyCode::Z);
@@ -343,11 +348,12 @@ fn kb_motor(
         (true, false) => motor_speed,
         (false, true) => -motor_speed,
         _ => 0.0,
-
     };
 
     for mut joint in joint_query.iter_mut() {
-        joint.data.set_motor_velocity(JointAxis::AngX, throttle, motor_factor);
+        joint
+            .data
+            .set_motor_velocity(JointAxis::AngX, throttle, motor_factor);
     }
 }
 
