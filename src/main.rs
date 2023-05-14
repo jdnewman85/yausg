@@ -7,7 +7,7 @@ use bevy::{
     sprite::MaterialMesh2dBundle,
     window::PrimaryWindow,
 };
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_inspector_egui::quick::{ResourceInspectorPlugin, WorldInspectorPlugin};
 use bevy_rapier3d::{
     prelude::*,
     rapier::prelude::{JointAxesMask, JointAxis},
@@ -45,6 +45,28 @@ impl Material for PerlinNoiseMaterial {
     }
 }
 
+// TODO Evaluate "completely optional" InspectorOptions
+//#[derive(Reflect, Resource, Default, InspectorOptions)]
+//  #[inspector(min = 0.0, max = 1.0)]
+//#[reflect(Resource, InspectorOptions)]
+#[derive(Reflect, Resource)]
+#[reflect(Resource)]
+struct MotorDebugResource {
+    max_force: f32,
+    speed: f32,
+    factor: f32,
+}
+
+impl Default for MotorDebugResource {
+    fn default() -> Self {
+        Self {
+            max_force: 500.0,
+            speed: 250.0,
+            factor: 1.0,
+        }
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -57,6 +79,9 @@ fn main() {
         .add_system(raycast_system)
         .add_system(kb_motor)
         //.add_system(god_mode_camera_system)
+        .init_resource::<MotorDebugResource>()
+        .register_type::<MotorDebugResource>()
+        .add_plugin(ResourceInspectorPlugin::<MotorDebugResource>::default())
         .run();
 }
 
@@ -98,7 +123,8 @@ fn setup(
                 ..default()
             },
             ..default()
-        });
+        })
+    ;
     commands
         .spawn(Name::new("Directional Light"))
         .insert(DirectionalLightBundle {
@@ -112,7 +138,8 @@ fn setup(
                 ..default()
             },
             ..default()
-        });
+        })
+    ;
 
     commands
         .spawn(Name::new("Ground Plane"))
@@ -127,7 +154,8 @@ fn setup(
             coefficient: 1.0,
             combine_rule: CoefficientCombineRule::Max,
         })
-        .insert(CollisionGroups::new(STATIC_GROUP, Group::all()));
+        .insert(CollisionGroups::new(STATIC_GROUP, Group::all()))
+    ;
 
     commands
         .spawn(Name::new("The Cube"))
@@ -140,7 +168,8 @@ fn setup(
             ..default()
         })
         .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)))
-        .insert(CollisionGroups::new(DYNAMIC_GROUP, Group::all()));
+        .insert(CollisionGroups::new(DYNAMIC_GROUP, Group::all()))
+    ;
 
     let vehicle_spawn_position = Vec3::new(30.0, 7.0, 1.0);
     let vehicle = spawn_vehicle(
@@ -156,7 +185,8 @@ fn setup(
         .insert(CollisionGroups::new(
             CAR_GROUP,
             CAR_GROUP.union(WHEEL_GROUP).not(),
-        ));
+        ))
+    ;
 
     commands
         .spawn(Name::new("3D Camera"))
@@ -173,7 +203,8 @@ fn setup(
         .insert(OrbitCamera {
             distance: 25.0,
             y_angle: 0.0,
-        });
+        })
+    ;
 
     commands
         .spawn(Name::new("UI Camera"))
@@ -186,7 +217,8 @@ fn setup(
                 clear_color: ClearColorConfig::None,
             },
             ..default()
-        });
+        })
+    ;
 
     commands
         .spawn(Name::new("UI Circle"))
@@ -195,14 +227,16 @@ fn setup(
             material: materials2d.add(Color::PURPLE.into()),
             transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
             ..default()
-        });
+        })
+    ;
 
     let gltf = assets.load("models/not-cube/not-cube.gltf#Scene0");
     commands.spawn(Name::new("Not-Cube")).insert(SceneBundle {
         scene: gltf,
         transform: Transform::from_xyz(-2.0, 0.0, -2.0).with_scale(Vec3::splat(0.25)),
         ..default()
-    });
+    })
+    ;
 }
 
 fn spawn_vehicle(
@@ -241,7 +275,8 @@ fn spawn_vehicle(
             spawn_position,
         )))
         .insert(Vehicle)
-        .id();
+        .id()
+    ;
 
     //Wheels
     let wheel_radius = 3.0;
@@ -285,7 +320,8 @@ fn spawn_vehicle(
                 .insert(ImpulseJoint::new(vehicle, axle_joint_builder))
                 .insert(Sleeping::disabled())
                 .insert(Ccd::enabled())
-                .id();
+                .id()
+            ;
 
             //Wheel Joint
             let motor_max_force = 500.0;
@@ -294,7 +330,8 @@ fn spawn_vehicle(
                 .local_axis2(-Vec3::Y)
                 .local_anchor1(wheel_offset - axle_offset)
                 .local_anchor2(Vec3::new(0.0, 0.0, 0.0))
-                .motor_max_force(JointAxis::AngX, motor_max_force);
+                .motor_max_force(JointAxis::AngX, motor_max_force)
+            ;
 
             let wheel = commands
                 .spawn(Name::new(format!("Wheel - {x_align} {z_align}")))
@@ -325,7 +362,8 @@ fn spawn_vehicle(
                     WHEEL_GROUP,
                     CAR_GROUP.union(WHEEL_GROUP).not(),
                 ))
-                .id();
+                .id()
+            ;
 
             wheel
         })
@@ -336,24 +374,23 @@ fn spawn_vehicle(
 
 fn kb_motor(
     keys: Res<Input<KeyCode>>,
+    debug: Res<MotorDebugResource>,
     mut joint_query: Query<&mut ImpulseJoint, With<WheelMotor>>,
 ) {
-    let motor_speed = 250.0;
-    let motor_factor = 1.0;
-
     let throttle_forward = keys.pressed(KeyCode::Space);
     let throttle_backward = keys.pressed(KeyCode::Z);
 
     let throttle = match (throttle_forward, throttle_backward) {
-        (true, false) => motor_speed,
-        (false, true) => -motor_speed,
+        (true, false) => debug.speed,
+        (false, true) => -debug.speed,
         _ => 0.0,
     };
 
     for mut joint in joint_query.iter_mut() {
         joint
             .data
-            .set_motor_velocity(JointAxis::AngX, throttle, motor_factor);
+            .set_motor_max_force(JointAxis::AngX, debug.max_force)
+            .set_motor_velocity(JointAxis::AngX, throttle, debug.factor);
     }
 }
 
