@@ -1,5 +1,53 @@
 ***Current Problem***
 
+First glimpse into main game sooner than later?
+
+Difference between two runs/plays quantifiable and usable?
+  Choices made, resources available, allocations and spending, etc, etc
+
+Can I quantify difference between bots?
+  with the vector thing from llms?
+
+Parent->Children for sink/sources?
+  I suppose not needed if no wiring?
+  Might still be needed at a higher level, tracking what is in scope?
+
+Writing circuits to control the viewports
+  Remote stationary cameras
+  Remote controllable cameras
+  Bot cameras
+  Multi cameras
+
+Player writes programs via internal editor
+  then uploads and registers them for use elsewhere
+  possibly via the global API
+    possibly also to more local networks
+
+Might be fun to force the player to use immutable logic in certain places
+  For puzzle design and constraints
+  Repurpose logic?
+    Simple logic
+    Supplementing broken/inadequate logic externally
+
+Restart/Reset of some "levels" could be logic in the main overall game, or the training
+
+Player conciousness respawn/retrieval could be repurposing of the training level restart mechanism
+  Maybe just a daemon that spawns you again on termination?
+    Now your position being the initial value
+      Which could be editable later
+
+How should we represent plc memory?
+
+
+What about non plc in-game components?
+  Such as sensors, motors, lights, etc
+  Need IO with each other and logic systems
+
+deferred world mutations - https://bevyengine.org/news/bevy-0-10/#deferred-world-mutations
+resource_scope - https://github.com/bevyengine/bevy/blob/ac661188c8679e767c4f2abebee22b4db3128e99/crates/bevy_ecs/src/world/mod.rs#L599-L615
+
+events - https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs
+system conditions - https://docs.rs/bevy/latest/bevy/ecs/schedule/common_conditions/index.html
 
 # Controls
 [o] Camera Controls
@@ -11,7 +59,7 @@
     [o] Gravity
     [X] Floor/level collision
     [o] Jump
-  [ ] *Decision:* Own, based completely on physically placed cameras
+  [ ] *Decision:* Own camera system, based completely on physically placed cameras
     [ ] Define our own camera location component
         Attaches to a main-system chassis or something?
     [ ] Requires being attached/wired in/setup?
@@ -26,7 +74,7 @@
     [X] Throttle from user input
     [X] Reverse
   [ ] Add additional rotational axis to wheel joints
-    [X] Add axels inbetween vehicle and wheels
+    [X] Add axles in-between vehicle and wheels
     [ ] Ability to rotate
     [ ] Move based on user input
     [ ] Limits
@@ -41,56 +89,63 @@
       Like forces for the child where being propagated to the parent
       Interactions that shouldn't have happened
 
+# Main interface
+## Ability to modify conciousness wiring
+## Choice of levels?
+Maybe as a facade, which ends up being a continually running level?
+Where the system is reloading/resetting our unit
+Escape of the training levels
+  or maybe training levels end up being your own sandbox? only preloaded with restrictions
+  possibly with early escapes being limited, and having to do more, and repeat a bit to further break controls
+  later stages the sandbox becoming your base of sorts?
 
+# PLC processor and containers in ECS
+Throttle containers via commands and IO
+System
+  Component per plc
+    program/container image
+    IO
+    Config
+      Type
+      Size
+      Speed
+      Capabilities
+      Requirements
+  Component per clock source?
+    Clock sources can be run synced
+  Component per IO block?
+    or on plc itself?
 
-# Puzzle ideas
-Momentary contacts
-Maintained contacts
+## Prototype todo
+- [ ] PLC Component
+  - [ ] IO
+- [ ] System
+  - [ ] Simple IO pass-through logic
+  - [ ] Propagate IO
+  - [ ] Clock offsets
+  - [ ] Clock speeds
+- [ ] Motor joint control
 
+## How do we route IO to/from devices?
+  Set all input sinks to their output sources
+  Run logic using current I/O buffer, writing outputs to new buffer
+  Copy new buffer into output sources
 
-# Logic Systems
-  [ ] Simple DEBUG
-    Hardcoded, or simple config based I->O
-      Can simply choose camera from available?
-  [ ] IL VM
-    Run il program with inputs, set outputs
-  [ ] LD Compiler
-  [ ] LD VM?
+### Events?
+  Check input components, generate change events as needed
+  Build input buffer
+  Run logic systems, generate change events as needed
+  Du
 
-Logic system
-  Ladder
-  Components
-Game States
-  Playing(Level)
-  GameOver
-  Menu
+### Memory address based connections?
+  Permissions?
+  Scopes
+    Device
+    Bot
+    Level
+    World
 
-
-# Misc Ideas
-
-Roguelike where each "life" is limited in time
-  Choices are sometimes exclusive
-  Not neccessarily linear
-
-
-Self-modification module
-  Allows wiring and configuration of modules on self
-
-
-# Apocalyptic remains as resources
-- Stockpiled fuel in bunkers
-- Plastic ores
-- Rare metal, in shapes of cars, skyscrapers, machines, guns
-- Lead, steel, brass from battlefields
-- Stone and cement from decayed cities
-- Radioactive material from open and filled areas
-  - Filled are old containment remains
-  - Open are old landing sites
-- Last of wood
-  - As all forests continue to die, we harvested the remaining in a frantic gold rush
-
-
-# Level Ideas
+# Level/Puzzle Ideas
 Simple key input momentary switch circuit
   Lights
 Multiple parallel momentary switch circuits
@@ -176,42 +231,25 @@ Experimentation?
 Resource "processing"
   Possibly with on-demand processing and storage needs?
 
-# Main interface
-## Ability to modify conciousness wiring
-## Choice of levels?
-Maybe as a facade, which ends up being a continually running level?
-Where the system is reloading/resetting our unit
-Escape of the training levels
-  or maybe training levels end up being your own sandbox? only preloaded with restrictions
-  possibly with early escapes being limited, and having to do more, and repeat a bit to further break controls
-  later stages the sandbox becoming your base of sorts?
+# Misc Ideas
+## Roguelike where each "life" is limited in time
+  Choices are sometimes exclusive
+  Not neccessarily linear
 
+## Self-modification module
+  Allows wiring and configuration of modules on self
 
-# PLC processor and containers in ECS
-Throttle containers via commands and IO
-System
-  Component per plc
-    program/container image
-    IO
-    Config
-      Type
-      Size
-      Speed
-      Capabilities
-      Requirements
-  Component per clock source?
-    Clock sources can be run synced
-  Component per IO block?
-    or on plc itself?
+## Apocalyptic remains as resources
+- Stockpiled fuel in bunkers
+- Plastic ores
+- Rare metal, in shapes of cars, skyscrapers, machines, guns
+- Lead, steel, brass from battlefields
+- Stone and cement from decayed cities
+- Radioactive material from open and filled areas
+  - Filled are old containment remains
+  - Open are old landing sites
+- Last of wood
+  - As all forests continue to die, we harvested the remaining in a frantic gold rush
 
-## Prototype todo
-- PLC Component
-  - IO
-- System
-  - Simple IO pass-through
-
-How do we route IO to/from devices?
-  Set all input sinks to their output sources
-  Run logic using current I/O buffer, writing outputs to new buffer
-  Copy new buffer into output sources
-Maybe wiring propagation should be a separate pre-system on all things with IO
+# BUGS
+fix-bad-first-joint - Branch contains example of problematic "first joint" bug
