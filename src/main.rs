@@ -9,11 +9,59 @@ use std::f32::consts::PI;
 
 mod camera;
 
-#[derive(Component)]
-struct LadderTileMap;
+#[derive(Clone, Default, Component)]
+enum LadderTile {
+    #[default]
+    Empty,
+}
 
+#[allow(dead_code)]
 #[derive(Component)]
-struct LadderTile;
+struct LadderTileMap {
+    width: usize,
+    height: usize,
+
+    tiles: Vec<Vec<Entity>>,
+}
+
+#[allow(dead_code)]
+impl LadderTileMap {
+    fn new(
+        commands: &mut Commands,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials2d: ResMut<Assets<ColorMaterial>>,
+        width: usize,
+        height: usize,
+    ) -> Self {
+
+        //TODO Tile Size
+        let tile_size = 16.0;
+        let tiles =
+        (0..height).map(|y| {
+            (0..width).map(|x| {
+                commands
+                    .spawn(Name::new(format!("Tile ({x},{y})")))
+                    .insert(MaterialMesh2dBundle {
+                        mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
+                        material: materials2d.add(Color::PURPLE.into()),
+                        transform: Transform::from_translation(Vec3::new(
+                            (x as f32)*tile_size,
+                            (y as f32)*tile_size,
+                            0.0,
+                        )),
+                        ..default()
+                    })
+                    .id()
+            }).collect()
+        }).collect();
+
+        LadderTileMap {
+            width,
+            height,
+            tiles,
+        }
+    }
+}
 
 fn main() {
     App::new()
@@ -23,7 +71,7 @@ fn main() {
         .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(setup)
         .add_system(camera::orbital_camera_system)
-        //.add_system(god_mode_camera_system)
+        //.add_system(camera::god_mode_camera_system)
         .run();
 }
 
@@ -81,7 +129,7 @@ fn setup(
             transform: Transform::from_xyz(0.0, -1.0, 0.0),
             ..default()
         })
-        .insert(Collider::cuboid(500.0, 0.001, 500.0))
+        .insert(Collider::cuboid(50.0, 0.001, 50.0))
         .insert(Friction {
             coefficient: 1.0,
             combine_rule: CoefficientCombineRule::Max,
@@ -141,5 +189,10 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
             ..default()
         })
+    ;
+
+    let tilemap = LadderTileMap::new(&mut commands, meshes, materials2d, 16, 16);
+    commands
+        .spawn(tilemap)
     ;
 }
