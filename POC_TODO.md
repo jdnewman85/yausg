@@ -1,5 +1,13 @@
 ## Prototype todo
 
+
+Instead of passing in commands, resources, etc and spawning tiles in the tilemap creation
+  Maybe I should be creating these in a system for newly added tilemaps?
+
+
+
+
+
 LadderTileMap
   Atlas
   Parent

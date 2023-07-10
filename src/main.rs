@@ -16,7 +16,7 @@ enum LadderTile {
 }
 
 #[allow(dead_code)]
-#[derive(Component)]
+#[derive(Component, Default)]
 struct LadderTileMap {
     width: usize,
     height: usize,
@@ -27,18 +27,30 @@ struct LadderTileMap {
 #[allow(dead_code)]
 impl LadderTileMap {
     fn new(
-        commands: &mut Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials2d: ResMut<Assets<ColorMaterial>>,
         width: usize,
         height: usize,
     ) -> Self {
 
+        LadderTileMap {
+            width,
+            height,
+            ..default()
+        }
+    }
+}
+
+fn init_ladder_map_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials2d: ResMut<Assets<ColorMaterial>>,
+    mut tilemap_query: Query<&mut LadderTileMap, Added<LadderTileMap>>,
+    ) {
+    for mut tilemap in tilemap_query.iter_mut() {
         //TODO Tile Size
         let tile_size = 16.0;
         let tiles =
-        (0..height).map(|y| {
-            (0..width).map(|x| {
+        (0..tilemap.height).map(|y| {
+            (0..tilemap.width).map(|x| {
                 commands
                     .spawn(Name::new(format!("Tile ({x},{y})")))
                     .insert(MaterialMesh2dBundle {
@@ -55,13 +67,10 @@ impl LadderTileMap {
             }).collect()
         }).collect();
 
-        LadderTileMap {
-            width,
-            height,
-            tiles,
-        }
+        tilemap.tiles = tiles;
     }
 }
+
 
 fn main() {
     App::new()
@@ -71,6 +80,7 @@ fn main() {
         .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(setup)
         .add_system(camera::orbital_camera_system)
+        .add_system(init_ladder_map_system)
         //.add_system(camera::god_mode_camera_system)
         .run();
 }
@@ -191,7 +201,7 @@ fn setup(
         })
     ;
 
-    let tilemap = LadderTileMap::new(&mut commands, meshes, materials2d, 16, 16);
+    let tilemap = LadderTileMap::new(16, 16);
     commands
         .spawn(tilemap)
     ;
