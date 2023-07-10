@@ -9,18 +9,21 @@ use std::f32::consts::PI;
 
 mod camera;
 
+#[allow(dead_code)]
 #[derive(Clone, Default, Component)]
 enum LadderTile {
     #[default]
     Empty,
+    NOContact,
+    NCContact,
 }
 
 #[allow(dead_code)]
-#[derive(Component, Default)]
+#[derive(Component)]
 struct LadderTileMap {
     width: usize,
     height: usize,
-
+    atlas: Handle<TextureAtlas>, //Should I just request this handle as needed?
     tiles: Vec<Vec<Entity>>,
 }
 
@@ -29,25 +32,29 @@ impl LadderTileMap {
     fn new(
         width: usize,
         height: usize,
+        atlas: Handle<TextureAtlas>,
     ) -> Self {
 
         LadderTileMap {
             width,
             height,
-            ..default()
+            atlas,
+            tiles: Vec::new(),
         }
     }
 }
 
 fn init_ladder_map_system(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials2d: ResMut<Assets<ColorMaterial>>,
     mut tilemap_query: Query<(&mut LadderTileMap, Entity), Added<LadderTileMap>>,
-    ) {
+    texture_atlases: Res<Assets<TextureAtlas>>,
+) {
+    let tile = LadderTile::default();
+    let index = tile.clone() as usize;
     for (mut tilemap, tm_entity) in tilemap_query.iter_mut() {
-        //TODO Tile Size
-        let tile_size = 16.0;
+        let atlas = texture_atlases.get(&tilemap.atlas).unwrap();
+        let texture = atlas.textures[index];
+        let tile_size = texture.size();
         let tiles =
         (0..tilemap.height).map(|y| {
             (0..tilemap.width).map(|x| {
@@ -55,12 +62,16 @@ fn init_ladder_map_system(
                 commands
                     .spawn((
                         Name::new(format!("Tile ({x},{y})")),
-                        MaterialMesh2dBundle {
-                            mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
-                            material: materials2d.add(Color::PURPLE.into()),
+                        tile.clone(),
+                        SpriteSheetBundle {
+                            sprite: TextureAtlasSprite {
+                                index,
+                                ..default()
+                            },
+                            texture_atlas: tilemap.atlas.clone(),
                             transform: Transform::from_translation(Vec3::new(
-                                (x as f32)*tile_size,
-                                (y as f32)*tile_size,
+                                (x as f32)*tile_size.x,
+                                (y as f32)*tile_size.y,
                                 0.0,
                             )),
                             ..default()
@@ -97,6 +108,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut materials2d: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     //Clear color
     commands.insert_resource(ClearColor(Color::CYAN));
@@ -208,11 +221,14 @@ fn setup(
         })
     ;
 
-    let tilemap = LadderTileMap::new(16, 16);
+    let tilemap_texture = asset_server.load("./textures/simple_sheet.png");
+    let texture_atlas = TextureAtlas::from_grid(tilemap_texture, Vec2::new(32.0, 32.0), 3, 1, None, None);
+    let atlas_handle = texture_atlases.add(texture_atlas);
+    let tilemap = LadderTileMap::new(10, 10, atlas_handle);
     commands.spawn((
         tilemap,
         SpatialBundle {
-            transform: Transform::from_xyz(250.0, 250.0, 0.0),
+            transform: Transform::from_xyz(50.0, 50.0, 0.0),
             ..default()
         },
     ))
