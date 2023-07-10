@@ -43,27 +43,34 @@ fn init_ladder_map_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials2d: ResMut<Assets<ColorMaterial>>,
-    mut tilemap_query: Query<&mut LadderTileMap, Added<LadderTileMap>>,
+    mut tilemap_query: Query<(&mut LadderTileMap, Entity), Added<LadderTileMap>>,
     ) {
-    for mut tilemap in tilemap_query.iter_mut() {
+    for (mut tilemap, tm_entity) in tilemap_query.iter_mut() {
         //TODO Tile Size
         let tile_size = 16.0;
         let tiles =
         (0..tilemap.height).map(|y| {
             (0..tilemap.width).map(|x| {
+                let tile_entity =
                 commands
-                    .spawn(Name::new(format!("Tile ({x},{y})")))
-                    .insert(MaterialMesh2dBundle {
-                        mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
-                        material: materials2d.add(Color::PURPLE.into()),
-                        transform: Transform::from_translation(Vec3::new(
-                            (x as f32)*tile_size,
-                            (y as f32)*tile_size,
-                            0.0,
-                        )),
-                        ..default()
-                    })
-                    .id()
+                    .spawn((
+                        Name::new(format!("Tile ({x},{y})")),
+                        MaterialMesh2dBundle {
+                            mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
+                            material: materials2d.add(Color::PURPLE.into()),
+                            transform: Transform::from_translation(Vec3::new(
+                                (x as f32)*tile_size,
+                                (y as f32)*tile_size,
+                                0.0,
+                            )),
+                            ..default()
+                        },
+                    ))
+                    .id();
+                commands
+                    .entity(tm_entity)
+                    .push_children(&[tile_entity]);
+                tile_entity
             }).collect()
         }).collect();
 
@@ -202,7 +209,12 @@ fn setup(
     ;
 
     let tilemap = LadderTileMap::new(16, 16);
-    commands
-        .spawn(tilemap)
+    commands.spawn((
+        tilemap,
+        SpatialBundle {
+            transform: Transform::from_xyz(250.0, 250.0, 0.0),
+            ..default()
+        },
+    ))
     ;
 }
