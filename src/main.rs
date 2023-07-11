@@ -21,9 +21,10 @@ enum LadderTile {
 #[allow(dead_code)]
 #[derive(Component)]
 struct LadderTileMap {
+    //TODO Rect, Vec2 or use tiles length?
     width: usize,
     height: usize,
-    atlas: Handle<TextureAtlas>, //Should I just request this handle as needed?
+    atlas: Handle<TextureAtlas>, //TODO Should I just request this handle as needed?
     tiles: Vec<Vec<Entity>>,
 }
 
@@ -42,6 +43,52 @@ impl LadderTileMap {
             tiles: Vec::new(),
         }
     }
+
+
+}
+
+fn ladder_click_system(
+    window_query: Query<&Window>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    mouse_buttons: Res<Input<MouseButton>>,
+    tilemap_query: Query<(&mut LadderTileMap, &Transform)>,
+    texture_atlases: Res<Assets<TextureAtlas>>,
+    mut tile_query: Query<(&mut LadderTile, &mut TextureAtlasSprite)>
+) {
+    if !mouse_buttons.just_pressed(MouseButton::Left) { return; };
+    let window = window_query.single();
+    let (camera, camera_transform) = camera_query.single();
+
+    let Some(viewport_position) = window.cursor_position() else { return; };
+    let Some(world_position) = camera.viewport_to_world_2d(camera_transform, viewport_position) else { return; };
+
+    for (tilemap, tilemap_transform) in tilemap_query.into_iter() {
+        let texture_atlas = texture_atlases.get(&tilemap.atlas).unwrap();
+        //TODO: By using LadderTile::Empty as a constant index,
+        //we only ever check the first texture,
+        //assuming all textures in the atlas have the same size
+        let texture_rect = texture_atlas.textures[LadderTile::Empty as usize];
+
+        let delta = world_position - tilemap_transform.translation.truncate();
+        let tilemap_pixel_size = Vec2::new(tilemap.width as f32, tilemap.height as f32) * texture_rect.size();
+
+        let both_positive = delta.min_element() > 0.0;
+        let x_intersects = both_positive && delta.x < tilemap_pixel_size.x;
+        let y_intersects = both_positive && delta.y < tilemap_pixel_size.y;
+        //TODO Redefine contains_cursor using cursor tile coords
+        let contains_cursor = x_intersects &y_intersects;
+        let cursor_tile_x = delta.x / texture_rect.width();
+        let cursor_tile_y = delta.y / texture_rect.height();
+        if contains_cursor {
+            let cursor_tile_x = cursor_tile_x as usize;
+            let cursor_tile_y = cursor_tile_y as usize;
+
+            let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
+            let (mut tile, mut sprite) = tile_query.get_mut(tile_entity).unwrap();
+            *tile = LadderTile::NOContact;
+            sprite.index = LadderTile::NOContact as usize;
+        }
+    }
 }
 
 fn init_ladder_map_system(
@@ -56,8 +103,8 @@ fn init_ladder_map_system(
         let texture = atlas.textures[index];
         let tile_size = texture.size();
         let tiles =
-        (0..tilemap.height).map(|y| {
-            (0..tilemap.width).map(|x| {
+        (0..tilemap.width).map(|x| {
+            (0..tilemap.height).map(|y| {
                 let tile_entity =
                 commands
                     .spawn((
@@ -66,12 +113,13 @@ fn init_ladder_map_system(
                         SpriteSheetBundle {
                             sprite: TextureAtlasSprite {
                                 index,
+                                anchor: bevy::sprite::Anchor::BottomLeft,
                                 ..default()
                             },
                             texture_atlas: tilemap.atlas.clone(),
                             transform: Transform::from_translation(Vec3::new(
                                 (x as f32)*tile_size.x,
-                                (y as f32)*tile_size.y,
+                                (y as f32)*tile_size.y, //TODO Reverse Y
                                 0.0,
                             )),
                             ..default()
@@ -99,6 +147,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system(camera::orbital_camera_system)
         .add_system(init_ladder_map_system)
+        .add_system(ladder_click_system)
         //.add_system(camera::god_mode_camera_system)
         .run();
 }
