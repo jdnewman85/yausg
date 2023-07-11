@@ -8,6 +8,9 @@ edition = "2021"
 [dependencies]
 bevy = "0.10.1"
 bevy-inspector-egui = "0.18.3"
+num = "0.4.0"
+num-derive = "0.4.0"
+num-traits = "0.2.15"
 #Gone? bevy-inspector-egui-rapier = { version = "0.10.0", features = ["rapier3d"] }
 rand = "0.8.5"
 

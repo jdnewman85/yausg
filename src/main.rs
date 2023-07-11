@@ -9,13 +9,17 @@ use std::f32::consts::PI;
 
 mod camera;
 
+use num_derive::FromPrimitive;
+
 #[allow(dead_code)]
 #[derive(Clone, Default, Component)]
+#[derive(FromPrimitive)]
 enum LadderTile {
     #[default]
     Empty,
     NOContact,
     NCContact,
+    _Length,
 }
 
 #[allow(dead_code)]
@@ -35,16 +39,13 @@ impl LadderTileMap {
         height: usize,
         atlas: Handle<TextureAtlas>,
     ) -> Self {
-
         LadderTileMap {
             width,
             height,
             atlas,
-            tiles: Vec::new(),
+            tiles: Vec::default(),
         }
     }
-
-
 }
 
 fn ladder_click_system(
@@ -85,8 +86,10 @@ fn ladder_click_system(
 
             let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
             let (mut tile, mut sprite) = tile_query.get_mut(tile_entity).unwrap();
-            *tile = LadderTile::NOContact;
-            sprite.index = LadderTile::NOContact as usize;
+            let new_index = (sprite.index + 1) % LadderTile::_Length as usize;
+            let new_tile: LadderTile = num::FromPrimitive::from_usize(new_index).unwrap();
+            sprite.index = new_index;
+            *tile = new_tile;
         }
     }
 }
