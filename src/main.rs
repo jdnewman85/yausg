@@ -30,6 +30,7 @@ struct LadderTileMap {
     height: usize,
     atlas: Handle<TextureAtlas>, //TODO Should I just request this handle as needed?
     tiles: Vec<Vec<Entity>>,
+    selection: Option<(usize, usize)>,
 }
 
 #[allow(dead_code)]
@@ -43,7 +44,8 @@ impl LadderTileMap {
             width,
             height,
             atlas,
-            tiles: Vec::default(),
+            tiles: default(),
+            selection: None,
         }
     }
 }
@@ -52,7 +54,7 @@ fn ladder_click_system(
     window_query: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     mouse_buttons: Res<Input<MouseButton>>,
-    tilemap_query: Query<(&mut LadderTileMap, &Transform)>,
+    tilemap_query: Query<(&LadderTileMap, &Transform)>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     mut tile_query: Query<(&mut LadderTile, &mut TextureAtlasSprite)>
 ) {
@@ -60,37 +62,35 @@ fn ladder_click_system(
     let window = window_query.single();
     let (camera, camera_transform) = camera_query.single();
 
-    let Some(viewport_position) = window.cursor_position() else { return; };
-    let Some(world_position) = camera.viewport_to_world_2d(camera_transform, viewport_position) else { return; };
+    let Some(cursor_viewport_position) = window.cursor_position() else { return; };
+    let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
 
-    for (tilemap, tilemap_transform) in tilemap_query.into_iter() {
+    for (tilemap, tilemap_transform) in tilemap_query.iter() {
         let texture_atlas = texture_atlases.get(&tilemap.atlas).unwrap();
         //TODO: By using LadderTile::Empty as a constant index,
         //we only ever check the first texture,
         //assuming all textures in the atlas have the same size
         let texture_rect = texture_atlas.textures[LadderTile::Empty as usize];
 
-        let delta = world_position - tilemap_transform.translation.truncate();
+        let delta = cursor_world_position - tilemap_transform.translation.truncate();
         let tilemap_pixel_size = Vec2::new(tilemap.width as f32, tilemap.height as f32) * texture_rect.size();
 
-        let both_positive = delta.min_element() > 0.0;
-        let x_intersects = both_positive && delta.x < tilemap_pixel_size.x;
-        let y_intersects = both_positive && delta.y < tilemap_pixel_size.y;
-        //TODO Redefine contains_cursor using cursor tile coords
-        let contains_cursor = x_intersects &y_intersects;
-        let cursor_tile_x = delta.x / texture_rect.width();
-        let cursor_tile_y = delta.y / texture_rect.height();
-        if contains_cursor {
-            let cursor_tile_x = cursor_tile_x as usize;
-            let cursor_tile_y = cursor_tile_y as usize;
+        let tilemap_position = tilemap_transform.translation.truncate();
+        let tilemap_rect = Rect::from_corners(
+            tilemap_position,
+            tilemap_position + tilemap_pixel_size
+        );
+        if !tilemap_rect.contains(cursor_world_position) { continue; };
 
-            let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
-            let (mut tile, mut sprite) = tile_query.get_mut(tile_entity).unwrap();
-            let new_index = (sprite.index + 1) % LadderTile::_Length as usize;
-            let new_tile: LadderTile = num::FromPrimitive::from_usize(new_index).unwrap();
-            sprite.index = new_index;
-            *tile = new_tile;
-        }
+        let cursor_tile_x = (delta.x / texture_rect.width()) as usize;
+        let cursor_tile_y = (delta.y / texture_rect.height()) as usize;
+
+        let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
+        let (mut tile, mut sprite) = tile_query.get_mut(tile_entity).unwrap();
+        let new_index = (sprite.index + 1) % LadderTile::_Length as usize;
+        let new_tile: LadderTile = num::FromPrimitive::from_usize(new_index).unwrap();
+        sprite.index = new_index;
+        *tile = new_tile;
     }
 }
 
@@ -101,42 +101,36 @@ fn init_ladder_map_system(
 ) {
     let tile = LadderTile::default();
     let index = tile.clone() as usize;
-    for (mut tilemap, tm_entity) in tilemap_query.iter_mut() {
+    for (mut tilemap, tilemap_entity) in tilemap_query.iter_mut() {
         let atlas = texture_atlases.get(&tilemap.atlas).unwrap();
         let texture = atlas.textures[index];
         let tile_size = texture.size();
-        let tiles =
-        (0..tilemap.width).map(|x| {
-            (0..tilemap.height).map(|y| {
-                let tile_entity =
-                commands
-                    .spawn((
-                        Name::new(format!("Tile ({x},{y})")),
-                        tile.clone(),
-                        SpriteSheetBundle {
-                            sprite: TextureAtlasSprite {
-                                index,
-                                anchor: bevy::sprite::Anchor::BottomLeft,
+        commands.entity(tilemap_entity).with_children(|parent_tilemap| {
+            tilemap.tiles =
+                (0..tilemap.width).map(|x| {
+                    (0..tilemap.height).map(|y| {
+                        parent_tilemap.spawn((
+                            Name::new(format!("Tile ({x},{y})")),
+                            tile.clone(),
+                            SpriteSheetBundle {
+                                sprite: TextureAtlasSprite {
+                                    index,
+                                    anchor: bevy::sprite::Anchor::BottomLeft, //TODO Different anchors
+                                    ..default()
+                                },
+                                texture_atlas: tilemap.atlas.clone(),
+                                transform: Transform::from_translation(Vec3::new(
+                                    (x as f32)*tile_size.x,
+                                    (y as f32)*tile_size.y, //TODO Reverse Y
+                                    0.0,
+                                )),
                                 ..default()
                             },
-                            texture_atlas: tilemap.atlas.clone(),
-                            transform: Transform::from_translation(Vec3::new(
-                                (x as f32)*tile_size.x,
-                                (y as f32)*tile_size.y, //TODO Reverse Y
-                                0.0,
-                            )),
-                            ..default()
-                        },
-                    ))
-                    .id();
-                commands
-                    .entity(tm_entity)
-                    .push_children(&[tile_entity]);
-                tile_entity
-            }).collect()
-        }).collect();
-
-        tilemap.tiles = tiles;
+                        )).id()
+                    }).collect()
+                }).collect()
+            ;
+        });
     }
 }
 
