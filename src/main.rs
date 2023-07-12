@@ -137,15 +137,19 @@ fn init_ladder_map_system(
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugin(RapierDebugRenderPlugin::default())
-        .add_plugin(WorldInspectorPlugin::new())
-        .add_startup_system(setup)
-        .add_system(camera::orbital_camera_system)
-        .add_system(init_ladder_map_system)
-        .add_system(ladder_click_system)
-        //.add_system(camera::god_mode_camera_system)
+        .add_plugins((
+            DefaultPlugins,
+            RapierPhysicsPlugin::<NoUserData>::default(),
+            RapierDebugRenderPlugin::default(),
+            WorldInspectorPlugin::new()
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (
+            camera::orbital_camera_system,
+            init_ladder_map_system,
+            ladder_click_system,
+//            camera::god_mode_camera_system,
+        ))
         .run();
 }
 
@@ -165,10 +169,9 @@ fn setup(
         color: Color::WHITE,
         brightness: 0.10,
     });
-
-    commands
-        .spawn(Name::new("Spotlight"))
-        .insert(SpotLightBundle {
+    commands.spawn((
+        Name::new("Spotlight"),
+        SpotLightBundle {
             transform: Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::NEG_X, Vec3::Z),
             spot_light: SpotLight {
                 intensity: 1600.0,
@@ -179,11 +182,11 @@ fn setup(
                 ..default()
             },
             ..default()
-        })
-    ;
-    commands
-        .spawn(Name::new("Directional Light"))
-        .insert(DirectionalLightBundle {
+        }
+    ));
+    commands.spawn((
+        Name::new("Directional Light"),
+        DirectionalLightBundle {
             directional_light: DirectionalLight {
                 shadows_enabled: true,
                 ..default()
@@ -194,58 +197,54 @@ fn setup(
                 ..default()
             },
             ..default()
-        })
-    ;
-
-    commands
-        .spawn(Name::new("Ground Plane"))
-        .insert(MaterialMeshBundle {
+        }
+    ));
+    commands.spawn((
+        Name::new("Ground Plane"),
+        MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Plane::from_size(100.0))),
             material: materials.add(Color::rgb(0.7, 0.9, 0.7).into()),
             transform: Transform::from_xyz(0.0, -1.0, 0.0),
             ..default()
-        })
-        .insert(Collider::cuboid(50.0, 0.001, 50.0))
-        .insert(Friction {
+        },
+        Collider::cuboid(50.0, 0.001, 50.0),
+        Friction {
             coefficient: 1.0,
             combine_rule: CoefficientCombineRule::Max,
-        })
-        .insert(camera::OrbitalTarget)
-    ;
-
-    commands
-        .spawn(Name::new("The Cube"))
-        .insert(RigidBody::Dynamic)
-        .insert(Collider::cuboid(0.5, 0.5, 0.5))
-        .insert(Restitution::coefficient(0.7))
-        .insert(PbrBundle {
+        },
+        camera::OrbitalTarget,
+    ));
+    commands.spawn((
+        Name::new("The Cube"),
+        RigidBody::Dynamic,
+        Collider::cuboid(0.5, 0.5, 0.5),
+        Restitution::coefficient(0.7),
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::rgb(0.4, 0.4, 1.0).into()),
+            transform: Transform::from_xyz(0.0, 4.0, 0.0),
             ..default()
-        })
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)))
-    ;
-
-    commands
-        .spawn(Name::new("3D Camera"))
-        .insert(Camera3dBundle {
+        },
+    ));
+    commands.spawn((
+        Name::new("3D Camera"),
+        Camera3dBundle {
             camera: Camera {
                 order: 0,
                 ..default()
             },
             transform: Transform::from_xyz(1.0, 1.0, 1.0),
             ..Default::default()
-        })
-        //.insert(GodModeCamera {});
-        .insert(camera::OrbitCamera {
+        },
+        //GodModeCamera {},
+        camera::OrbitCamera {
             distance: 25.0,
             y_angle: 0.0,
-        })
-    ;
-
-    commands
-        .spawn(Name::new("UI Camera"))
-        .insert(Camera2dBundle {
+        },
+    ));
+    commands.spawn((
+        Name::new("UI Camera"),
+        Camera2dBundle {
             camera: Camera {
                 order: 1,
                 ..default()
@@ -254,18 +253,17 @@ fn setup(
                 clear_color: ClearColorConfig::None,
             },
             ..default()
-        })
-    ;
-
-    commands
-        .spawn(Name::new("UI Circle"))
-        .insert(MaterialMesh2dBundle {
+        },
+    ));
+    commands.spawn((
+        Name::new("UI Circle"),
+        MaterialMesh2dBundle {
             mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
             material: materials2d.add(Color::PURPLE.into()),
             transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
             ..default()
-        })
-    ;
+        },
+    ));
 
     let tilemap_texture = asset_server.load("./textures/simple_sheet.png");
     let texture_atlas = TextureAtlas::from_grid(tilemap_texture, Vec2::new(32.0, 32.0), 3, 1, None, None);
@@ -277,6 +275,5 @@ fn setup(
             transform: Transform::from_xyz(50.0, 50.0, 0.0),
             ..default()
         },
-    ))
-    ;
+    ));
 }
