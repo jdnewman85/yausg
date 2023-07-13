@@ -12,7 +12,7 @@ mod camera;
 use num_derive::FromPrimitive;
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, Default, Component)]
+#[derive(Copy, Clone, Default, Component, Debug)]
 #[derive(FromPrimitive)]
 enum LadderTile {
     #[default]
@@ -89,8 +89,7 @@ fn init_ladder_map_system(
                                 },
                                 tilemap.tile_images[index].clone(),
                                 RelativeCursorPosition::default(),
-                            )
-                            ).id()
+                            )).id()
                         }).collect()
                     }).collect()
                 ;
@@ -111,9 +110,10 @@ fn main() {
         .add_systems(Update, (
             camera::orbital_camera_system,
             init_ladder_map_system,
-            ui_ladder_click_system,
+            ladder_click_system,
             screenshot_on_spacebar,
-//            camera::god_mode_camera_system,
+            //camera::god_mode_camera_system,
+            ladder_print_system,
         ))
         .run();
 }
@@ -236,6 +236,7 @@ fn setup(
         asset_server.load("./textures/simpleNC.png").into(),
     ]);
     commands.spawn((
+        Name::new("Tilemap A"),
         tilemap,
         SpatialBundle {
             transform: Transform::from_xyz(50.0, 50.0, 0.0),
@@ -244,7 +245,7 @@ fn setup(
     ));
 }
 
-fn ui_ladder_click_system(
+fn ladder_click_system(
     mouse_buttons: Res<Input<MouseButton>>,
     tilemap_query: Query<&LadderTileMap>,
     mut tile_query: Query<(&mut LadderTile, &mut UiImage, &RelativeCursorPosition, &Parent)>,
@@ -263,6 +264,23 @@ fn ui_ladder_click_system(
     }
 }
 
+fn ladder_print_system(
+    input: Res<Input<KeyCode>>,
+    tilemap_query: Query<(&LadderTileMap, &Name)>,
+    tile_query: Query<&LadderTile>,
+) {
+    if !input.just_pressed(KeyCode::L) { return; }
+    for (tilemap, name) in tilemap_query.iter() {
+        println!("Tilemap: {name}");
+        for (x, col) in tilemap.tiles.iter().enumerate() {
+            for (y, tile_entity) in col.iter().enumerate() {
+                let tile = tile_query.get(*tile_entity).unwrap();
+                println!("\tTile @ ({x}, {y}) == {tile:?}")
+            }
+        }
+    }
+}
+
 //from bevy examples
 fn screenshot_on_spacebar(
     input: Res<Input<KeyCode>>,
@@ -270,11 +288,8 @@ fn screenshot_on_spacebar(
     mut screenshot_manager: ResMut<ScreenshotManager>,
     mut counter: Local<u32>,
 ) {
-    if input.just_pressed(KeyCode::P) {
-        let path = format!("./screenshot-{}.png", *counter);
-        *counter += 1;
-        screenshot_manager
-            .save_screenshot_to_disk(main_window.single(), path)
-            .unwrap();
-    }
+    if !input.just_pressed(KeyCode::P) { return; }
+    let path = format!("./screenshot-{}.png", *counter);
+    *counter += 1;
+    screenshot_manager.save_screenshot_to_disk(main_window.single(), path).unwrap();
 }
