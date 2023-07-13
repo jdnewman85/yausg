@@ -1,7 +1,7 @@
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
-    sprite::MaterialMesh2dBundle,
+    sprite::MaterialMesh2dBundle, ui::RelativeCursorPosition, window::PrimaryWindow, render::view::screenshot::ScreenshotManager,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
@@ -148,6 +148,8 @@ fn main() {
             camera::orbital_camera_system,
             init_ladder_map_system,
             ladder_click_system,
+            ui_ladder_click_system,
+            screenshot_on_spacebar,
 //            camera::god_mode_camera_system,
         ))
         .run();
@@ -276,4 +278,71 @@ fn setup(
             ..default()
         },
     ));
+
+    //UI Test
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Px(320.0),
+                height: Val::Px(320.0),
+                position_type: PositionType::Absolute,
+                display: Display::Grid,
+                grid_template_rows: RepeatedGridTrack::flex(10, 1.0),
+                grid_template_columns: RepeatedGridTrack::flex(10, 1.0),
+                ..default()
+            },
+            background_color: Color::rgba(0.0, 0.0, 0.0, 1.0).into(),
+            ..default()
+        },
+        //UiImage::new(asset_server.load("./textures/simple.png")),
+    ),
+    )
+        .with_children(|parent| {
+            (0..100).for_each(|_| {
+                parent.spawn((
+                    NodeBundle {
+                        style: Style {
+                            //width: Val::Px(32.0),
+                            //height: Val::Px(32.0),
+                            ..default()
+                        },
+                        background_color: Color::rgba(0.0, 1.0, 0.0, 1.0).into(),
+                        ..default()
+                    },
+                    UiImage::new(asset_server.load("./textures/simpleNO.png")),
+                    RelativeCursorPosition::default(),
+                ));
+            });
+        })
+    ;
+}
+
+fn ui_ladder_click_system(
+    asset_server: Res<AssetServer>,
+    mouse_buttons: Res<Input<MouseButton>>,
+    mut tile_query: Query<(&mut UiImage, &RelativeCursorPosition)>,
+) {
+    if !mouse_buttons.just_pressed(MouseButton::Left) { return; };
+
+    for (mut ui_image, rel_cursor_pos) in tile_query.iter_mut() {
+        if rel_cursor_pos.mouse_over() {
+            *ui_image = asset_server.load("./textures/simpleNC.png").into();
+        }
+    }
+}
+
+//from bevy examples
+fn screenshot_on_spacebar(
+    input: Res<Input<KeyCode>>,
+    main_window: Query<Entity, With<PrimaryWindow>>,
+    mut screenshot_manager: ResMut<ScreenshotManager>,
+    mut counter: Local<u32>,
+) {
+    if input.just_pressed(KeyCode::Space) {
+        let path = format!("./screenshot-{}.png", *counter);
+        *counter += 1;
+        screenshot_manager
+            .save_screenshot_to_disk(main_window.single(), path)
+            .unwrap();
+    }
 }
