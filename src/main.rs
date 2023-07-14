@@ -17,8 +17,21 @@ use num_derive::FromPrimitive;
 enum LadderTile {
     #[default]
     Empty,
-    NOContact,
-    NCContact,
+    NoContact,
+    NcContact,
+    NoCoil,
+    NcCoil,
+    Horz,
+    Vert,
+    BR,
+    BL,
+    UR,
+    UL,
+    Cross,
+    T000,
+    T090,
+    T180,
+    T270,
     _Length,
 }
 
@@ -89,6 +102,7 @@ fn init_ladder_map_system(
                                 },
                                 tilemap.tile_images[index].clone(),
                                 RelativeCursorPosition::default(),
+                                Interaction::default(),
                             )).id()
                         }).collect()
                     }).collect()
@@ -114,6 +128,7 @@ fn main() {
             screenshot_on_spacebar,
             //camera::god_mode_camera_system,
             ladder_print_system,
+            tile_mouse_over_highlight_system,
         ))
         .run();
 }
@@ -195,8 +210,7 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 order: 0,
-                ..default()
-            },
+                ..default() },
             transform: Transform::from_xyz(1.0, 1.0, 1.0),
             ..Default::default()
         },
@@ -230,11 +244,26 @@ fn setup(
     ));
 
     let mut tilemap = LadderTileMap::new(10, 10);
-    tilemap.tile_images.append(&mut vec![
-        asset_server.load("./textures/simpleEmpty.png").into(),
-        asset_server.load("./textures/simpleNO.png").into(),
-        asset_server.load("./textures/simpleNC.png").into(),
-    ]);
+    tilemap.tile_images = vec![
+        "./textures/Empty.png",
+        "./textures/NO-Contact.png",
+        "./textures/NC-Contact.png",
+        "./textures/NO-Coil.png",
+        "./textures/NC-Coil.png",
+        "./textures/Horz.png",
+        "./textures/Vert.png",
+        "./textures/BR.png",
+        "./textures/BL.png",
+        "./textures/UR.png",
+        "./textures/UL.png",
+        "./textures/Cross.png",
+        "./textures/T-000.png",
+        "./textures/T-090.png",
+        "./textures/T-180.png",
+        "./textures/T-270.png",
+    ].iter().map(|filename| {
+        asset_server.load(*filename).into()
+    }).collect();
     commands.spawn((
         Name::new("Tilemap A"),
         tilemap,
@@ -278,6 +307,18 @@ fn ladder_print_system(
                 println!("\tTile @ ({x}, {y}) == {tile:?}")
             }
         }
+    }
+}
+
+fn tile_mouse_over_highlight_system(
+    mut tile_query: Query<(&mut BackgroundColor, &Interaction), (With<LadderTile>, Changed<Interaction>)>,
+) {
+    for (mut background_color, interaction) in tile_query.iter_mut() {
+        *background_color = if *interaction == Interaction::Hovered || *interaction == Interaction::Pressed {
+            Color::rgb(0.0, 0.5, 0.0).into()
+        } else {
+            Color::rgb(1.0, 1.0, 1.0).into()
+        };
     }
 }
 

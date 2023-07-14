@@ -1,35 +1,22 @@
+
+Next Step?
+- Add images for needed ladder symbols?
+- Plan out more detailed layout
+- Cursor?
+- Grid lines?
+
+
 ## Prototype todo
-
-
-Instead of passing in commands, resources, etc and spawning tiles in the tilemap creation
-  Maybe I should be creating these in a system for newly added tilemaps?
-
-
-
-
-
-LadderTileMap
-  Atlas
-  Parent
-  SpriteBundle
-    Transform
-    Texture
-LadderTile
-
-click_system notes
-  Only the tilemaps need to check
-  Per-tile collision check
-    (ClickPosition - TilePosition) < TileSize
-
-
 - [ ] Editor
   - [ ] Grid
     - [ ] Drawing
     - [ ] Click detection
   - [ ] Contacts
   - [ ] Coils
-  - [ ] Connections
-  - [ ] Realtime status display
+  - [ ] Connections/Wires
+  - [ ] Real-time status display
+  - [ ] Palette
+  - [ ] Net generation
 - [ ] Ld2Il Compiler
   - [ ] Generate IL
 - [ ] IL Executor
