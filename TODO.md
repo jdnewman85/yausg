@@ -1,4 +1,43 @@
 ***Current Problem***
+
+## PLC Interface
+Constant, possibly smaller left and right power rungs
+Contact area
+Right most usable column is coils
+
+Placement of vertical and horizontal connections can infer the more complex wires
+  Nope! Not entirely
+  Can wires be inferred largely from contacts?
+
+Fanuc style verticals that exist between tiles?
+  With horizontals still being a regular tile
+
+For now, even tiles are possible verticals?
+
+Maybe work on single rung editing?
+
+How should the user choose labels?
+  Require them to be predefined in memory tables
+  Only show correct type
+
+
+Contact area is only contacts
+  Contacts (2 simple)
+    NO
+    NC
+  Wires (10)
+    - |    _ _
+    |_ _| |   |
+    |- -| T _|_
+
+More advanced PLC features
+  Sequencers
+  Timers
+  Integer Ops
+  Float Ops
+  Vector Ops?
+
+
 How should we represent plc memory?
 
 What about non plc in-game components?
@@ -56,7 +95,7 @@ System
 ## How do we route IO to/from devices? In game, and in code
 ### In game
   IO only available in logic handling devices
-  Scopped, and with permissions and attributes
+  Scoped, and with permissions and attributes
   Addressed
 
 ### In code

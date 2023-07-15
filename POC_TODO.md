@@ -5,6 +5,9 @@ Next Step?
 - Cursor?
 - Grid lines?
 
+Try line drawing
+May use bevy_prototype_lyon and svgs later
+
 
 ## Prototype todo
 - [ ] Editor
