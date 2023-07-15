@@ -35,9 +35,34 @@ enum LadderTile {
     _Length,
 }
 
+impl LadderTile {
+    fn texture_filename(&self) -> &'static str {
+        match self {
+            Self::Empty => "Empty",
+            Self::NoContact => "NO-Contact",
+            Self::NcContact => "NC-Contact",
+            Self::NoCoil => "NO-Coil",
+            Self::NcCoil => "NC-Coil",
+            Self::Horz => "Horz",
+            Self::Vert => "Vert",
+            Self::BR => "BR",
+            Self::BL => "BL",
+            Self::UR => "UR",
+            Self::UL => "UL",
+            Self::Cross => "Cross",
+            Self::T000 => "T-000",
+            Self::T090 => "T-090",
+            Self::T180 => "T-180",
+            Self::T270 => "T-270",
+            Self::_Length => unreachable!(),
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Component)]
 struct LadderTileMap {
+    //TODO Generalize TileMap and monomorphize over
     //TODO Rect, Vec2 or use tiles length?
     width: usize,
     height: usize,
@@ -57,6 +82,20 @@ impl LadderTileMap {
             tile_images: default(),
             tiles: default(),
         }
+    }
+
+    fn load_tile_images(&mut self, asset_server: &Res<AssetServer>) {
+        self.tile_images = (0..LadderTile::_Length as usize)
+            .map(|tile_variant| {
+                let i_tile: LadderTile = num::FromPrimitive::from_usize(tile_variant).unwrap();
+                i_tile
+            })
+            .map(|tile| tile.texture_filename())
+            .map(|f| format!("./textures/{f}.png"))
+            .map(|filename| {
+                asset_server.load(filename).into()
+            })
+            .collect();
     }
 }
 
@@ -246,26 +285,7 @@ fn setup(
     ));
 
     let mut tilemap = LadderTileMap::new(10, 10);
-    tilemap.tile_images = vec![
-        "Empty",
-        "NO-Contact",
-        "NC-Contact",
-        "NO-Coil",
-        "NC-Coil",
-        "Horz",
-        "Vert",
-        "BR",
-        "BL",
-        "UR",
-        "UL",
-        "Cross",
-        "T-000",
-        "T-090",
-        "T-180",
-        "T-270",
-    ].iter().map(|f| format!("./textures/{f}.png")).map(|filename| {
-        asset_server.load(filename).into()
-    }).collect();
+    tilemap.load_tile_images(&asset_server);
     commands.spawn((
         Name::new("Tilemap A"),
         tilemap,
