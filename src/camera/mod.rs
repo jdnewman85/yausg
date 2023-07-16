@@ -1,8 +1,8 @@
+use bevy::prelude::*;
 use bevy::{
     input::mouse::MouseMotion,
     window::{CursorGrabMode, PrimaryWindow},
 };
-use bevy::prelude::*;
 use std::f32::consts::PI;
 
 #[derive(Component)]

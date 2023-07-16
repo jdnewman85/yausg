@@ -1,4 +1,7 @@
-use bevy::{sprite::MaterialMesh2dBundle, core_pipeline::clear_color::ClearColorConfig, prelude::*, ui::RelativeCursorPosition, window::PrimaryWindow, render::view::screenshot::ScreenshotManager};
+use bevy::{
+    core_pipeline::clear_color::ClearColorConfig, prelude::*,
+    render::view::screenshot::ScreenshotManager, ui::RelativeCursorPosition, window::PrimaryWindow,
+};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
@@ -7,8 +10,7 @@ mod camera;
 
 use num_derive::FromPrimitive;
 
-#[derive(Copy, Clone, Default, Component, Debug)]
-#[derive(FromPrimitive)]
+#[derive(Copy, Clone, Default, Component, Debug, FromPrimitive)]
 enum LadderTile {
     #[default]
     Empty,
@@ -65,10 +67,7 @@ struct LadderTileMap {
 }
 
 impl LadderTileMap {
-    fn new(
-        width: usize,
-        height: usize,
-    ) -> Self {
+    fn new(width: usize, height: usize) -> Self {
         LadderTileMap {
             width,
             height,
@@ -85,19 +84,15 @@ impl LadderTileMap {
             })
             .map(|tile| tile.texture_filename())
             .map(|tile_filename| format!("./textures/{tile_filename}.png"))
-            .map(|full_path| {
-                asset_server.load(full_path).into()
-            })
+            .map(|full_path| asset_server.load(full_path).into())
             .collect();
     }
 }
 
-#[derive(Default)]
-#[derive(Component)]
+#[derive(Default, Component)]
 struct SelectedTile;
 
-#[derive(Default)]
-#[derive(Component)]
+#[derive(Default, Component)]
 struct Floater; //TODO TEMP ofc
 
 fn parent_floater_to_selected_entity(
@@ -109,7 +104,9 @@ fn parent_floater_to_selected_entity(
     let Ok(selected_tile_entity) = selected_tile_query.get_single() else { return; };
 
     if let Some(parent_entity) = maybe_parent {
-        if parent_entity.get() == selected_tile_entity { return; }
+        if parent_entity.get() == selected_tile_entity {
+            return;
+        }
 
         //Unparent old parent
         commands.entity(floater_entity).remove_parent();
@@ -134,7 +131,7 @@ fn init_ladder_map_system(
             .insert((
                 NodeBundle {
                     style: Style {
-                        width: Val::Px(320.0), //TODO
+                        width: Val::Px(320.0),  //TODO
                         height: Val::Px(320.0), //TODO
                         position_type: PositionType::Absolute,
                         display: Display::Grid,
@@ -165,12 +162,10 @@ fn init_ladder_map_system(
                         }).collect()
                     }).collect()
                 ;
-            });
+            })
+        ;
     }
 }
-
-
-
 
 fn main() {
     App::new()
@@ -178,27 +173,30 @@ fn main() {
             DefaultPlugins,
             RapierPhysicsPlugin::<NoUserData>::default(),
             RapierDebugRenderPlugin::default(),
-            WorldInspectorPlugin::new()
+            WorldInspectorPlugin::new(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (
-            camera::orbital_camera_system,
-            init_ladder_map_system,
-            ladder_click_system,
-            screenshot_on_spacebar,
-            //camera::god_mode_camera_system,
-            ladder_print_system,
-            tile_mouse_over_select_system,
-            parent_floater_to_selected_entity,
-        ))
-        .run();
+        .add_systems(
+            Update,
+            (
+                camera::orbital_camera_system,
+                init_ladder_map_system,
+                ladder_click_system,
+                screenshot_on_spacebar,
+                //camera::god_mode_camera_system,
+                ladder_print_system,
+                tile_mouse_over_select_system,
+                parent_floater_to_selected_entity,
+            ),
+        )
+        .run()
+    ;
 }
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut materials2d: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     //Clear color
@@ -222,7 +220,7 @@ fn setup(
                 ..default()
             },
             ..default()
-        }
+        },
     ));
     commands.spawn((
         Name::new("Directional Light"),
@@ -237,7 +235,7 @@ fn setup(
                 ..default()
             },
             ..default()
-        }
+        },
     ));
     commands.spawn((
         Name::new("Ground Plane"),
@@ -271,7 +269,8 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 order: 0,
-                ..default() },
+                ..default()
+            },
             transform: Transform::from_xyz(1.0, 1.0, 1.0),
             ..Default::default()
         },
@@ -323,7 +322,12 @@ fn setup(
 fn ladder_click_system(
     mouse_buttons: Res<Input<MouseButton>>,
     tilemap_query: Query<&LadderTileMap>,
-    mut tile_query: Query<(&mut LadderTile, &mut UiImage, &RelativeCursorPosition, &Parent)>,
+    mut tile_query: Query<(
+        &mut LadderTile,
+        &mut UiImage,
+        &RelativeCursorPosition,
+        &Parent,
+    )>,
 ) {
     if !mouse_buttons.just_pressed(MouseButton::Left) { return; };
 
@@ -358,17 +362,22 @@ fn ladder_print_system(
 
 fn tile_mouse_over_select_system(
     mut commands: Commands,
-    mut tile_query: Query<(Entity, &mut BackgroundColor, &Interaction), (With<LadderTile>, Changed<Interaction>)>,
+    mut tile_query: Query<
+        (Entity, &mut BackgroundColor, &Interaction),
+        (With<LadderTile>, Changed<Interaction>),
+    >,
 ) {
     for (tile_entity, mut background_color, interaction) in tile_query.iter_mut() {
-        *background_color = if *interaction == Interaction::Hovered || *interaction == Interaction::Pressed {
-            commands.entity(tile_entity).insert(SelectedTile::default());
-            //Color::rgb(0.0, 0.5, 0.0).into()
-            Color::rgb(1.0, 1.0, 1.0).into()//TODO
-        } else {
-            commands.entity(tile_entity).remove::<SelectedTile>();
-            Color::rgb(1.0, 1.0, 1.0).into()
-        };
+        *background_color =
+            if *interaction == Interaction::Hovered || *interaction == Interaction::Pressed {
+                commands.entity(tile_entity).insert(SelectedTile::default());
+                //Color::rgb(0.0, 0.5, 0.0).into()
+                Color::rgb(1.0, 1.0, 1.0).into() //TODO
+            } else {
+                commands.entity(tile_entity).remove::<SelectedTile>();
+                Color::rgb(1.0, 1.0, 1.0).into()
+            }
+        ;
     }
 }
 

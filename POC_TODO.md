@@ -1,5 +1,12 @@
 ## PLC Interface
 
+How do tiles know their surroundings?
+  Store their position within? Ick...
+
+How do tiles know their position?
+How do we run different actions depending?
+  Components can differentiate between a tile for a ladder and one for a tool?
+
 Scroll Wheel - Change Tool
 
 Tools
@@ -50,19 +57,19 @@ More advanced PLC features
   Float Ops
   Vector Ops?
 
+Try line drawing
+May use bevy_prototype_lyon and svgs later
+
+
 ### Next Steps
-
-Need to be able to detect location, scale of tiles
-  and to parent something relative, without affecting layout
-
 - Add images for needed ladder symbols?
 - Plan out more detailed layout
 - Cursor?
 - Grid lines?
 
-Try line drawing
-May use bevy_prototype_lyon and svgs later
-
+Redefine UI to have our new line system?
+Labels
+IO
 
 ## Prototype todo
 - [ ] Editor
