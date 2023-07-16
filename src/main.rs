@@ -1,8 +1,4 @@
-use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
-    prelude::*,
-    sprite::MaterialMesh2dBundle, ui::RelativeCursorPosition, window::PrimaryWindow, render::view::screenshot::ScreenshotManager,
-};
+use bevy::{sprite::MaterialMesh2dBundle, core_pipeline::clear_color::ClearColorConfig, prelude::*, ui::RelativeCursorPosition, window::PrimaryWindow, render::view::screenshot::ScreenshotManager};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
@@ -11,7 +7,6 @@ mod camera;
 
 use num_derive::FromPrimitive;
 
-#[allow(dead_code)]
 #[derive(Copy, Clone, Default, Component, Debug)]
 #[derive(FromPrimitive)]
 enum LadderTile {
@@ -59,7 +54,6 @@ impl LadderTile {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Component)]
 struct LadderTileMap {
     //TODO Generalize TileMap and monomorphize over
@@ -70,7 +64,6 @@ struct LadderTileMap {
     tiles: Vec<Vec<Entity>>,
 }
 
-#[allow(dead_code)]
 impl LadderTileMap {
     fn new(
         width: usize,
@@ -91,12 +84,38 @@ impl LadderTileMap {
                 i_tile
             })
             .map(|tile| tile.texture_filename())
-            .map(|f| format!("./textures/{f}.png"))
-            .map(|filename| {
-                asset_server.load(filename).into()
+            .map(|tile_filename| format!("./textures/{tile_filename}.png"))
+            .map(|full_path| {
+                asset_server.load(full_path).into()
             })
             .collect();
     }
+}
+
+#[derive(Default)]
+#[derive(Component)]
+struct SelectedTile;
+
+#[derive(Default)]
+#[derive(Component)]
+struct Floater; //TODO TEMP ofc
+
+fn parent_floater_to_selected_entity(
+    mut commands: Commands,
+    floater_query: Query<(Entity, Option<&Parent>), With<Floater>>,
+    selected_tile_query: Query<Entity, With<SelectedTile>>,
+) {
+    let Ok((floater_entity, maybe_parent)) = floater_query.get_single() else { return; };
+    let Ok(selected_tile_entity) = selected_tile_query.get_single() else { return; };
+
+    if let Some(parent_entity) = maybe_parent {
+        if parent_entity.get() == selected_tile_entity { return; }
+
+        //Unparent old parent
+        commands.entity(floater_entity).remove_parent();
+    };
+    //Add as child to new parent
+    commands.entity(selected_tile_entity).add_child(floater_entity);
 }
 
 fn init_ladder_map_system(
@@ -115,8 +134,8 @@ fn init_ladder_map_system(
             .insert((
                 NodeBundle {
                     style: Style {
-                        width: Val::Px(320.0),
-                        height: Val::Px(320.0),
+                        width: Val::Px(320.0), //TODO
+                        height: Val::Px(320.0), //TODO
                         position_type: PositionType::Absolute,
                         display: Display::Grid,
                         grid_template_rows: RepeatedGridTrack::flex(10, 1.0),
@@ -169,7 +188,8 @@ fn main() {
             screenshot_on_spacebar,
             //camera::god_mode_camera_system,
             ladder_print_system,
-            //tile_mouse_over_highlight_system,
+            tile_mouse_over_select_system,
+            parent_floater_to_selected_entity,
         ))
         .run();
 }
@@ -276,12 +296,16 @@ fn setup(
     ));
     commands.spawn((
         Name::new("UI Circle"),
-        MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
-            material: materials2d.add(Color::PURPLE.into()),
-            transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
+        NodeBundle {
+            style: Style {
+                width: Val::Px(32.0),
+                height: Val::Px(32.0),
+                ..default()
+            },
+            background_color: Color::rgba(0.0, 0.0, 1.0, 0.2).into(),
             ..default()
         },
+        Floater::default(),
     ));
 
     let mut tilemap = LadderTileMap::new(10, 10);
@@ -332,32 +356,21 @@ fn ladder_print_system(
     }
 }
 
-/*
-fn tile_mouse_over_selection_system(
-    mut selection_query: Query<Transform, With<Selection>>,
-    mut tile_query: Query<&Interaction, (With<LadderTile>, Changed<Interaction>)>,
+fn tile_mouse_over_select_system(
+    mut commands: Commands,
+    mut tile_query: Query<(Entity, &mut BackgroundColor, &Interaction), (With<LadderTile>, Changed<Interaction>)>,
 ) {
-    for (mut background_color, interaction) in tile_query.iter_mut() {
+    for (tile_entity, mut background_color, interaction) in tile_query.iter_mut() {
         *background_color = if *interaction == Interaction::Hovered || *interaction == Interaction::Pressed {
-            Color::rgb(0.0, 0.5, 0.0).into()
+            commands.entity(tile_entity).insert(SelectedTile::default());
+            //Color::rgb(0.0, 0.5, 0.0).into()
+            Color::rgb(1.0, 1.0, 1.0).into()//TODO
         } else {
+            commands.entity(tile_entity).remove::<SelectedTile>();
             Color::rgb(1.0, 1.0, 1.0).into()
         };
     }
 }
-
-fn tile_mouse_over_highlight_system(
-    mut tile_query: Query<(&mut BackgroundColor, &Interaction), (With<LadderTile>, Changed<Interaction>)>,
-) {
-    for (mut background_color, interaction) in tile_query.iter_mut() {
-        *background_color = if *interaction == Interaction::Hovered || *interaction == Interaction::Pressed {
-            Color::rgb(0.0, 0.5, 0.0).into()
-        } else {
-            Color::rgb(1.0, 1.0, 1.0).into()
-        };
-    }
-}
-*/
 
 //from bevy examples
 fn screenshot_on_spacebar(

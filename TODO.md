@@ -1,42 +1,5 @@
 ***Current Problem***
 
-## PLC Interface
-Constant, possibly smaller left and right power rungs
-Contact area
-Right most usable column is coils
-
-Placement of vertical and horizontal connections can infer the more complex wires
-  Nope! Not entirely
-  Can wires be inferred largely from contacts?
-
-Fanuc style verticals that exist between tiles?
-  With horizontals still being a regular tile
-
-For now, even tiles are possible verticals?
-
-Maybe work on single rung editing?
-
-How should the user choose labels?
-  Require them to be predefined in memory tables
-  Only show correct type
-
-
-Contact area is only contacts
-  Contacts (2 simple)
-    NO
-    NC
-  Wires (10)
-    - |    _ _
-    |_ _| |   |
-    |- -| T _|_
-
-More advanced PLC features
-  Sequencers
-  Timers
-  Integer Ops
-  Float Ops
-  Vector Ops?
-
 
 How should we represent plc memory?
 
@@ -314,6 +277,10 @@ Player conciousness respawn/retrieval could be repurposing of the training level
   Maybe just a daemon that spawns you again on termination?
     Now your position being the initial value
       Which could be editable later
+
+DIY Elevator circuit
+DIY Airlock circuit
+DIY Override circuit
 
 ## Roguelike where each "life" is limited in time
   Choices are sometimes exclusive
