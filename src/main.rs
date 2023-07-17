@@ -1,7 +1,7 @@
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
-    sprite::MaterialMesh2dBundle,
+    sprite::MaterialMesh2dBundle, render::view::screenshot::ScreenshotManager, window::PrimaryWindow,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
@@ -11,54 +11,112 @@ mod camera;
 
 use num_derive::FromPrimitive;
 
-#[allow(dead_code)]
-#[derive(Clone, Default, Component)]
-#[derive(FromPrimitive)]
+#[derive(Copy, Clone, Default, Component, Debug, FromPrimitive)]
 enum LadderTile {
     #[default]
     Empty,
-    NOContact,
-    NCContact,
+    NoContact,
+    NcContact,
+    NoCoil,
+    NcCoil,
+    Horz,
+    Vert,
+    BR,
+    BL,
+    UR,
+    UL,
+    T000,
+    T090,
+    T180,
+    T270,
+    Cross,
     _Length,
 }
 
-#[allow(dead_code)]
+impl LadderTile {
+    fn texture_filename(&self) -> &'static str {
+        match self {
+            Self::Empty => "Empty",
+            Self::NoContact => "NO-Contact",
+            Self::NcContact => "NC-Contact",
+            Self::NoCoil => "NO-Coil",
+            Self::NcCoil => "NC-Coil",
+            Self::Horz => "Horz",
+            Self::Vert => "Vert",
+            Self::BR => "BR",
+            Self::BL => "BL",
+            Self::UR => "UR",
+            Self::UL => "UL",
+            Self::T000 => "T-000",
+            Self::T090 => "T-090",
+            Self::T180 => "T-180",
+            Self::T270 => "T-270",
+            Self::Cross => "Cross",
+            Self::_Length => unreachable!(),
+        }
+    }
+}
+
 #[derive(Component)]
 struct LadderTileMap {
     //TODO Rect, Vec2 or use tiles length?
     width: usize,
     height: usize,
-    atlas: Handle<TextureAtlas>, //TODO Should I just request this handle as needed?
+    tile_images: Vec<Handle<Image>>,
     tiles: Vec<Vec<Entity>>,
-    selection: Option<(usize, usize)>,
 }
 
-#[allow(dead_code)]
 impl LadderTileMap {
     fn new(
         width: usize,
         height: usize,
-        atlas: Handle<TextureAtlas>,
     ) -> Self {
         LadderTileMap {
             width,
             height,
-            atlas,
+            tile_images: default(),
             tiles: default(),
-            selection: None,
+        }
+    }
+
+    fn load_tile_images(&mut self, asset_server: &Res<AssetServer>) {
+        self.tile_images = (0..LadderTile::_Length as usize)
+            .map(|tile_variant| {
+                let i_tile: LadderTile = num::FromPrimitive::from_usize(tile_variant).unwrap();
+                i_tile
+            })
+            .map(|tile| tile.texture_filename())
+            .map(|tile_filename| format!("./textures/{tile_filename}.png"))
+            .map(|full_path| asset_server.load(full_path).into())
+            .collect();
+    }
+}
+
+fn ladder_print_system(
+    input: Res<Input<KeyCode>>,
+    tilemap_query: Query<(&LadderTileMap, &Name)>,
+    tile_query: Query<&LadderTile>,
+) {
+    if !input.just_pressed(KeyCode::L) { return; }
+    for (tilemap, name) in tilemap_query.iter() {
+        println!("Tilemap: {name}");
+        for (x, col) in tilemap.tiles.iter().enumerate() {
+            for (y, tile_entity) in col.iter().enumerate() {
+                let tile = tile_query.get(*tile_entity).unwrap();
+                println!("\tTile @ ({x}, {y}) == {tile:?}")
+            }
         }
     }
 }
 
-fn ladder_click_system(
+fn ladder_mouse_system(
     window_query: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     mouse_buttons: Res<Input<MouseButton>>,
     tilemap_query: Query<(&LadderTileMap, &Transform)>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    mut tile_query: Query<(&mut LadderTile, &mut TextureAtlasSprite)>
+    textures: Res<Assets<Image>>,
+    mut tile_query: Query<(&mut LadderTile, &mut Sprite, &mut Handle<Image>)>
 ) {
-    if !mouse_buttons.just_pressed(MouseButton::Left) { return; };
     let window = window_query.single();
     let (camera, camera_transform) = camera_query.single();
 
@@ -66,14 +124,13 @@ fn ladder_click_system(
     let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
 
     for (tilemap, tilemap_transform) in tilemap_query.iter() {
-        let texture_atlas = texture_atlases.get(&tilemap.atlas).unwrap();
-        //TODO: By using LadderTile::Empty as a constant index,
-        //we only ever check the first texture,
-        //assuming all textures in the atlas have the same size
-        let texture_rect = texture_atlas.textures[LadderTile::Empty as usize];
+        //TODO TEMP?
+        //Highlight under cursor
+
+        let empty_texture = textures.get(&tilemap.tile_images[LadderTile::Empty as usize]).unwrap();
 
         let delta = cursor_world_position - tilemap_transform.translation.truncate();
-        let tilemap_pixel_size = Vec2::new(tilemap.width as f32, tilemap.height as f32) * texture_rect.size();
+        let tilemap_pixel_size = Vec2::new(tilemap.width as f32, tilemap.height as f32) * empty_texture.size();
 
         let tilemap_position = tilemap_transform.translation.truncate();
         let tilemap_rect = Rect::from_corners(
@@ -82,28 +139,32 @@ fn ladder_click_system(
         );
         if !tilemap_rect.contains(cursor_world_position) { continue; };
 
-        let cursor_tile_x = (delta.x / texture_rect.width()) as usize;
-        let cursor_tile_y = (delta.y / texture_rect.height()) as usize;
+        let cursor_tile_x = (delta.x / empty_texture.size().x) as usize;
+        let cursor_tile_y = (delta.y / empty_texture.size().y) as usize;
 
         let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
-        let (mut tile, mut sprite) = tile_query.get_mut(tile_entity).unwrap();
-        let new_index = (sprite.index + 1) % LadderTile::_Length as usize;
-        let new_tile: LadderTile = num::FromPrimitive::from_usize(new_index).unwrap();
-        sprite.index = new_index;
-        *tile = new_tile;
+        let (mut tile, mut sprite, mut image_handle) = tile_query.get_mut(tile_entity).unwrap();
+        sprite.color = Color
+
+        if mouse_buttons.just_pressed(MouseButton::Left) {
+            let new_index = (*tile as usize + 1) % LadderTile::_Length as usize; //TODO Unuglify
+            let new_tile: LadderTile = num::FromPrimitive::from_usize(new_index).unwrap();
+            *image_handle = tilemap.tile_images[new_index].clone();
+            *tile = new_tile;
+        }
     }
 }
 
-fn init_ladder_map_system(
+fn ladder_init_system(
     mut commands: Commands,
     mut tilemap_query: Query<(&mut LadderTileMap, Entity), Added<LadderTileMap>>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
+    textures: Res<Assets<Image>>,
 ) {
-    let tile = LadderTile::default();
-    let index = tile.clone() as usize;
+    let empty_tile = LadderTile::default();
+    let empty_texture_index = empty_tile.clone() as usize;
     for (mut tilemap, tilemap_entity) in tilemap_query.iter_mut() {
-        let atlas = texture_atlases.get(&tilemap.atlas).unwrap();
-        let texture = atlas.textures[index];
+        let empty_texture_handle = tilemap.tile_images[empty_texture_index].clone();
+        let texture = textures.get(&empty_texture_handle).unwrap();
         let tile_size = texture.size();
         commands.entity(tilemap_entity).with_children(|parent_tilemap| {
             tilemap.tiles =
@@ -111,14 +172,13 @@ fn init_ladder_map_system(
                     (0..tilemap.height).map(|y| {
                         parent_tilemap.spawn((
                             Name::new(format!("Tile ({x},{y})")),
-                            tile.clone(),
-                            SpriteSheetBundle {
-                                sprite: TextureAtlasSprite {
-                                    index,
+                            empty_tile.clone(),
+                            SpriteBundle {
+                                texture: empty_texture_handle.clone(),
+                                sprite: Sprite {
                                     anchor: bevy::sprite::Anchor::BottomLeft, //TODO Different anchors
                                     ..default()
                                 },
-                                texture_atlas: tilemap.atlas.clone(),
                                 transform: Transform::from_translation(Vec3::new(
                                     (x as f32)*tile_size.x,
                                     (y as f32)*tile_size.y, //TODO Reverse Y
@@ -134,11 +194,24 @@ fn init_ladder_map_system(
     }
 }
 
+fn screenshot_on_spacebar(
+    input: Res<Input<KeyCode>>,
+    main_window: Query<Entity, With<PrimaryWindow>>,
+    mut screenshot_manager: ResMut<ScreenshotManager>,
+    mut counter: Local<u32>,
+) {
+    if !input.just_pressed(KeyCode::P) { return; }
+    let path = format!("./screenshot-{}.png", *counter);
+    *counter += 1;
+    screenshot_manager.save_screenshot_to_disk(main_window.single(), path).unwrap();
+}
 
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins
+                //.set(ImagePlugin::default_nearest())
+            ,
             RapierPhysicsPlugin::<NoUserData>::default(),
             RapierDebugRenderPlugin::default(),
             WorldInspectorPlugin::new()
@@ -146,10 +219,13 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, (
             camera::orbital_camera_system,
-            init_ladder_map_system,
-            ladder_click_system,
-//            camera::god_mode_camera_system,
+            ladder_init_system,
+            ladder_mouse_system,
+            //camera::god_mode_camera_system,
+            screenshot_on_spacebar,
+            ladder_print_system,
         ))
+        //.insert_resource(Msaa::Off)
         .run();
 }
 
@@ -159,7 +235,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut materials2d: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     //Clear color
     commands.insert_resource(ClearColor(Color::CYAN));
@@ -265,10 +340,8 @@ fn setup(
         },
     ));
 
-    let tilemap_texture = asset_server.load("./textures/simple_sheet.png");
-    let texture_atlas = TextureAtlas::from_grid(tilemap_texture, Vec2::new(32.0, 32.0), 3, 1, None, None);
-    let atlas_handle = texture_atlases.add(texture_atlas);
-    let tilemap = LadderTileMap::new(10, 10, atlas_handle);
+    let mut tilemap = LadderTileMap::new(10, 10);
+    tilemap.load_tile_images(&asset_server); //TODO Put in init of tilemap
     commands.spawn((
         tilemap,
         SpatialBundle {

@@ -4,8 +4,20 @@
 Instead of passing in commands, resources, etc and spawning tiles in the tilemap creation
   Maybe I should be creating these in a system for newly added tilemaps?
 
-
-
+# *Problem* Atlas Bleeding
+Can be helped with:
+  .insert_resource(Msaa::Off)
+  DefaultPlugins.set(ImagePlugin::default_nearest())
+- However, this turns of msaa for our 3d scene also atm.
+Other solutions involve a buffer pixel,
+  but arean't ideal
+## Current Decision
+Switch to single image frames again for now
+## Links
+[Make Msaa a component not a resource.](https://github.com/bevyengine/bevy/pull/7215)
+[Move Msaa to a component, instead of a resource](https://github.com/bevyengine/bevy/issues/7194)
+[Pixel artifact between sprite, on specific camera position.](https://github.com/bevyengine/bevy/issues/4748)
+[Shader to directly render to screen pixels](https://github.com/bevyengine/bevy/issues/1856)
 
 
 LadderTileMap
