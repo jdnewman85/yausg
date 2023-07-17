@@ -81,14 +81,21 @@ impl LadderTileMap {
 
     fn load_tile_images(&mut self, asset_server: &Res<AssetServer>) {
         self.tile_images = (0..LadderTile::_Length as usize)
-            .map(|tile_variant| {
-                let i_tile: LadderTile = num::FromPrimitive::from_usize(tile_variant).unwrap();
-                i_tile
-            })
-            .map(|tile| tile.texture_filename())
+            .map(|tile_variant| num::FromPrimitive::from_usize(tile_variant).unwrap())
+            .map(|tile: LadderTile| tile.texture_filename())
             .map(|tile_filename| format!("./textures/{tile_filename}.png"))
             .map(|full_path| asset_server.load(full_path).into())
             .collect();
+    }
+}
+
+fn ladder_image_update_system(
+    tilemap_query: Query<&LadderTileMap>, //TODO Opt, maybe store the entire handle vec in each tile? :(
+    mut tile_query: Query<(&LadderTile, &mut Handle<Image>, &Parent), Changed<LadderTile>>,
+) {
+    for (tile, mut image_handle, parent) in tile_query.iter_mut() {
+        let tilemap = tilemap_query.get(parent.get()).unwrap();
+        *image_handle = tilemap.tile_images[tile.clone() as usize].clone();
     }
 }
 
@@ -115,7 +122,7 @@ fn ladder_mouse_system(
     mouse_buttons: Res<Input<MouseButton>>,
     tilemap_query: Query<(&LadderTileMap, &Transform)>,
     textures: Res<Assets<Image>>,
-    mut tile_query: Query<(&mut LadderTile, &mut Sprite, &mut Handle<Image>)>
+    mut tile_query: Query<&mut LadderTile>
 ) {
     let window = window_query.single();
     let (camera, camera_transform) = camera_query.single();
@@ -143,13 +150,11 @@ fn ladder_mouse_system(
         let cursor_tile_y = (delta.y / empty_texture.size().y) as usize;
 
         let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
-        let (mut tile, mut sprite, mut image_handle) = tile_query.get_mut(tile_entity).unwrap();
-        sprite.color = Color
+        let mut tile = tile_query.get_mut(tile_entity).unwrap();
 
         if mouse_buttons.just_pressed(MouseButton::Left) {
             let new_index = (*tile as usize + 1) % LadderTile::_Length as usize; //TODO Unuglify
             let new_tile: LadderTile = num::FromPrimitive::from_usize(new_index).unwrap();
-            *image_handle = tilemap.tile_images[new_index].clone();
             *tile = new_tile;
         }
     }
@@ -224,6 +229,7 @@ fn main() {
             //camera::god_mode_camera_system,
             screenshot_on_spacebar,
             ladder_print_system,
+            ladder_image_update_system,
         ))
         //.insert_resource(Msaa::Off)
         .run();

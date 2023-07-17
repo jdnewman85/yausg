@@ -1,8 +1,11 @@
 ## Prototype todo
 
 
-Instead of passing in commands, resources, etc and spawning tiles in the tilemap creation
-  Maybe I should be creating these in a system for newly added tilemaps?
+Selection Ideas
+  Store in laddermap
+  And add as component
+  Add system that checks validity and removes if needed
+  While also doing the highlighting itself maybe?
 
 # *Problem* Atlas Bleeding
 Can be helped with:
@@ -19,19 +22,6 @@ Switch to single image frames again for now
 [Pixel artifact between sprite, on specific camera position.](https://github.com/bevyengine/bevy/issues/4748)
 [Shader to directly render to screen pixels](https://github.com/bevyengine/bevy/issues/1856)
 
-
-LadderTileMap
-  Atlas
-  Parent
-  SpriteBundle
-    Transform
-    Texture
-LadderTile
-
-click_system notes
-  Only the tilemaps need to check
-  Per-tile collision check
-    (ClickPosition - TilePosition) < TileSize
 
 
 - [ ] Editor
