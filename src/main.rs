@@ -30,6 +30,7 @@ fn main() {
             laddermap::ladder_mouse_system,
             laddermap::ladder_print_system,
             laddermap::ladder_image_update_system,
+            laddermap::test_clear_tilemap_system,
         ))
         //.insert_resource(Msaa::Off)
         .run();

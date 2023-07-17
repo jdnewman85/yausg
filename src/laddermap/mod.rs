@@ -103,13 +103,13 @@ impl LadderTileMap {
     */
     #[allow(dead_code)]
     pub fn apply_pos_fn(
-        &mut self,
+        &self,
         func: TileMapPositionalFunc,
         tile_query: &mut Query<&mut LadderTile>,
     ) {
         self.tiles.iter().enumerate().for_each(|(x, tile_col)| {
             tile_col.iter().enumerate().for_each(|(y, entity)| {
-                let mut tile = *tile_query.get_mut(entity.clone()).unwrap();
+                let mut tile = tile_query.get_mut(entity.clone()).unwrap();
                 func(&mut tile, (x, y), (self.width, self.height));
             });
         });
@@ -149,7 +149,7 @@ pub fn ladder_mouse_system(
     mouse_buttons: Res<Input<MouseButton>>,
     tilemap_query: Query<(&LadderTileMap, &Transform)>,
     textures: Res<Assets<Image>>,
-    mut tile_query: Query<&mut LadderTile>
+    mut tile_query: Query<&mut LadderTile>,
 ) {
     let window = window_query.single();
     let (camera, camera_transform) = camera_query.single();
@@ -177,6 +177,24 @@ pub fn ladder_mouse_system(
             let new_index = (*tile as usize + 1) % LadderTile::_Length as usize; //TODO Unuglify
             *tile = new_index.into();
         }
+    }
+}
+
+pub fn test_clear_tilemap_system(
+    input: Res<Input<KeyCode>>,
+    tilemap_query: Query<&mut LadderTileMap>,
+    mut tile_query: Query<&mut LadderTile>,
+) {
+    if !input.just_pressed(KeyCode::Key0) { return; }
+
+    for tilemap in tilemap_query.iter() {
+        tilemap.apply_pos_fn(|tile, position, size| {
+            *tile = match (&tile, position, size) {
+                (_, pos, size) if pos.0 == 0 || pos.0 == size.0-1 => LadderTile::Vert,
+                (_, _, _) => LadderTile::Empty,
+            }
+
+        }, &mut tile_query);
     }
 }
 
