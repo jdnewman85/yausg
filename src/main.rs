@@ -1,8 +1,8 @@
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
-    sprite::MaterialMesh2dBundle,
 };
+use bevy_prototype_lyon::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
@@ -19,7 +19,8 @@ fn main() {
             ,
             RapierPhysicsPlugin::<NoUserData>::default(),
             RapierDebugRenderPlugin::default(),
-            WorldInspectorPlugin::new()
+            WorldInspectorPlugin::new(),
+            ShapePlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (
@@ -29,7 +30,7 @@ fn main() {
             laddermap::ladder_init_system,
             laddermap::ladder_mouse_system,
             laddermap::ladder_print_system,
-            laddermap::ladder_image_update_system,
+            laddermap::ladder_path_update_system,
             laddermap::test_clear_tilemap_system,
         ))
         //.insert_resource(Msaa::Off)
@@ -40,8 +41,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut materials2d: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     //Clear color
     commands.insert_resource(ClearColor(Color::CYAN));
@@ -137,23 +136,21 @@ fn setup(
             ..default()
         },
     ));
-    commands.spawn((
-        Name::new("UI Circle"),
-        MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::new(5.0).into()).into(),
-            material: materials2d.add(Color::PURPLE.into()),
-            transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
-            ..default()
-        },
-    ));
-
-    let mut tilemap = laddermap::LadderTileMap::new(10, 10);
-    tilemap.load_tile_images(&asset_server); //TODO Put in init of tilemap
+    let tilemap = laddermap::LadderTileMap::new(8, 8);
+    let tile_size = Vec2::splat(64.0);
+    let tilemap_pixel_size = Vec2::new(8 as f32, 8 as f32) * tile_size; //TODO
+    let tile_map_path = format!("M 0,0 H {} V {} H 0 Z", tilemap_pixel_size.x, tilemap_pixel_size.y);
     commands.spawn((
         tilemap,
-        SpatialBundle {
-            transform: Transform::from_xyz(50.0, 50.0, 0.0),
+        ShapeBundle {
+            transform: Transform::from_xyz(-200.0, 0.0, 0.0),
+            path: GeometryBuilder::build_as(&shapes::SvgPathShape {
+                svg_path_string: tile_map_path,
+                svg_doc_size_in_px: Vec2::Y * (tilemap_pixel_size.y * 2.0), //TODO HACK Invert Y
+            }),
             ..default()
         },
+        Stroke::new(Color::BLACK, 1.0),
+        Fill::color(Color::WHITE),
     ));
 }

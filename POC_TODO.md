@@ -1,5 +1,54 @@
 ## Prototype todo
 
+Offset for SvgPathShape in bevy_prototype_lyon is hard coded as size/2
+  Great opensource PR opportunity?
+    https://github.com/Nilirad/bevy_prototype_lyon/blob/2d4de13724b4f8b465feaa7c322cbfc0c61f9913/src/shapes.rs#L335
+    Adding anchor offsets similar to what is allowed in sprites
+    https://github.com/bevyengine/bevy/blob/5b0e6a53214277db5fe3276b297172f3ecc5f812/crates/bevy_sprite/src/sprite.rs#L30
+      Or just respect the Sprite::Anchor component
+
+
+If we decide to have variable sized tiles,
+  Either sparse maps are needed
+  Or long/wide tiles that take more space
+  Or long/wide tiles constant for a column
+
+Need to build out the tile type
+  Display Info
+    Path
+    Size
+    Connection points
+    Labels
+      Address
+      Option<Tile func name>
+
+
+To get good pixel svg results
+  qcad
+    Inches
+    Center on origin
+    Scale by 1/96
+    Save
+  inkscape
+    Setup XML output/export preferences
+      Such as precision, and abs/rel
+    Setup document
+      Pixels
+      1/1 Scale
+      Page size if wanted
+    Import dxf
+    Combine paths from layers as wanted
+    Delete any groups
+    Set offset and size for paths
+    Align centers if wanted
+    Explore XML and copy out svg path
+
+
+
+
+
+Need room for labels
+
 
 Selection Ideas
   Store in laddermap
