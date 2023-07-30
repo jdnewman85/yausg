@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
+use bevy_prototype_lyon::prelude::tess::geom;
 
 use num_derive::FromPrimitive;
+
 #[derive(Copy, Clone, Default, Component, Debug, FromPrimitive)]
 pub enum LadderTile {
     #[default]
@@ -34,25 +36,22 @@ impl LadderTile {
     fn path_string(&self) -> String {
         match self {
             LadderTile::Empty => "",
-            LadderTile::NoContact => "M 40,32 H 64 M 40,12 V 52 M 24,12 V 52 M 0,32 H 24",
-            LadderTile::NcContact => "M 44,16 L 20,48 M 24,32 H 0 M 40,32 H 64 M 40,12 V 52 M 24,12 V 52",
-            LadderTile::NoCoil => "M 48,32 H 64 M 16,32 H 0 M 36,48 A 16.67,16.67 0 0 1 36,16 M 28,16 A 16.67,16.67 0 0 1 28,48",
-            LadderTile::NcCoil => "M 44,16 L 20,48 M 36,48 A 16.67,16.67 0 0 1 36,16 M 28,16 A 16.67,16.67 0 0 1 28,48 M 64,32 H 48 M 0,32 H 16",
-            LadderTile::Horz => "M 0,32 H 64",
-            LadderTile::Vert => "M 32,0 V 64",
-            LadderTile::LeftDown => "M 0,32 H 32 V 64",
-            LadderTile::LeftUp => "M 0,32 H 32 V 0",
-            LadderTile::RightDown => "M 64,32 H 32 V 64",
-            LadderTile::RightUp => "M 64,32 H 32 V 0",
-            LadderTile::T000 => "M 0,32 H 64 M 32,32 V 64",
-            LadderTile::T090 => "M 32,0 V 64 M 32,32 H 64",
-            LadderTile::T180 => "M 0,32 H 64 M 32,32 V 0",
-            LadderTile::T270 => "M 32,0 V 64 M 32,32 H 0",
-            LadderTile::Cross => "M 0,32 H 64 M 32,0 V 64",
+            LadderTile::NoContact => "M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125 M 0,0.5 H 0.375",
+            LadderTile::NcContact => "M 0.6875,0.25L 0.3125,0.75 M 0.375,0.5 H 0 M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125",
+            LadderTile::NoCoil => "M 0.75,0.5 H 1.0 M 0.25,0.5 H 0 M 0.5625,0.75 A 0.26046875,0.26046875 0 0 1 0.5625,0.25M 0.4375,0.25A 0.26046875,0.26046875 0 0 1 0.4375,0.75",
+            LadderTile::NcCoil => "M 0.6875,0.25L 0.3125,0.75 M 0.5625,0.75 A 0.26046875,0.26046875 0 0 1 0.5625,0.25M 0.4375,0.25A 0.26046875,0.26046875 0 0 1 0.4375,0.75 M 1.0,0.5 H 0.75 M 0,0.5 H 0.25",
+            LadderTile::Horz => "M 0,0.5 H 1.0",
+            LadderTile::Vert => "M 0.5,0 V 1.0",
+            LadderTile::LeftDown => "M 0,0.5 H 0.5 V 1.0",
+            LadderTile::LeftUp => "M 0,0.5 H 0.5 V 0",
+            LadderTile::RightDown => "M 1.0,0.5 H 0.5 V 1.0",
+            LadderTile::RightUp => "M 1.0,0.5 H 0.5 V 0",
+            LadderTile::T000 => "M 0,0.5 H 1.0 M 0.5,0.5 V 1.0",
+            LadderTile::T090 => "M 0.5,0 V 1.0 M 0.5,0.5 H 1.0",
+            LadderTile::T180 => "M 0,0.5 H 1.0 M 0.5,0.5 V 0",
+            LadderTile::T270 => "M 0.5,0 V 1.0 M 0.5,0.5 H 0",
+            LadderTile::Cross => "M 0,0.5 H 1.0 M 0.5,0 V 1.0",
             LadderTile::_Length => unreachable!(),
-        /*
-            LadderTile::_Length => todo!(),
-        */
         }.into()
     }
 }
@@ -105,8 +104,11 @@ pub fn ladder_path_update_system(
         *path = GeometryBuilder::build_as(&shapes::SvgPathShape {
             svg_path_string: tile.clone().path_string(),
             //svg_doc_size_in_px: Vec2::ZERO, //Vec2::new(64.0, 64.0),
-            svg_doc_size_in_px: Vec2::Y * 128.0, //TODO TEMP Attempt y offset
-        })
+            //svg_doc_size_in_px: Vec2::Y * 128.0, //TODO TEMP Attempt y offset
+            //svg_doc_size_in_px: Vec2::new(64.0, 64.0),
+            svg_doc_size_in_px: Vec2::ZERO,
+        });
+        *path = bevy_prototype_lyon::entity::Path(path.0.clone().transformed(&geom::Transform::<f32>::scale(64.0, -64.0)));
     }
 }
 
@@ -190,7 +192,8 @@ pub fn ladder_init_system(
     mut tilemap_query: Query<(&mut LadderTileMap, Entity), Added<LadderTileMap>>,
 ) {
     for (mut tilemap, tilemap_entity) in tilemap_query.iter_mut() {
-        let tile_size = Vec2::splat(64.0);
+        //let tile_size = Vec2::splat(64.0);
+        let tile_size = Vec2::new(64.0, 64.0);
         commands.entity(tilemap_entity)
             .with_children(|parent_tilemap| {
             tilemap.tiles =
@@ -207,8 +210,8 @@ pub fn ladder_init_system(
                                 )).with_scale(Vec3::splat(1.0)),
                                 path: GeometryBuilder::build_as(&shapes::SvgPathShape {
                                     svg_path_string: LadderTile::default().path_string(),
-                                    //svg_doc_size_in_px: Vec2::ZERO, //Vec2::new(64.0, 64.0),
-                                    svg_doc_size_in_px: Vec2::Y * 128.0, //TODO TEMP Attempt y offset
+                                    svg_doc_size_in_px: Vec2::ZERO, //Vec2::new(64.0, 64.0),
+                                    //svg_doc_size_in_px: Vec2::Y * 128.0, //TODO TEMP Attempt y offset
                                 }),
                                 ..default()
                             },

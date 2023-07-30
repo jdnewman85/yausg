@@ -1,5 +1,8 @@
 ## Prototype todo
 
+Maybe the tilemap should have functions to define child arrangement?
+
+
 Offset for SvgPathShape in bevy_prototype_lyon is hard coded as size/2
   Great opensource PR opportunity?
     https://github.com/Nilirad/bevy_prototype_lyon/blob/2d4de13724b4f8b465feaa7c322cbfc0c61f9913/src/shapes.rs#L335

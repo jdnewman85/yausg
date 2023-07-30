@@ -4429,6 +4429,7 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_prototype_lyon",
  "bevy_rapier3d",
+ "lyon_algorithms",
  "num",
  "num-derive 0.4.0",
  "num-traits",
