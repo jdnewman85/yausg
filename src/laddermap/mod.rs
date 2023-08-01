@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
-use bevy_prototype_lyon::prelude::tess::geom;
 
 use num_derive::FromPrimitive;
 
@@ -103,12 +102,14 @@ pub fn ladder_path_update_system(
     for (tile, mut path) in tile_query.iter_mut() {
         *path = GeometryBuilder::build_as(&shapes::SvgPathShape {
             svg_path_string: tile.clone().path_string(),
-            //svg_doc_size_in_px: Vec2::ZERO, //Vec2::new(64.0, 64.0),
-            //svg_doc_size_in_px: Vec2::Y * 128.0, //TODO TEMP Attempt y offset
-            //svg_doc_size_in_px: Vec2::new(64.0, 64.0),
+            //svg_doc_size_in_px: Vec2::new(-1.0, 1.0),
             svg_doc_size_in_px: Vec2::ZERO,
         });
-        *path = bevy_prototype_lyon::entity::Path(path.0.clone().transformed(&geom::Transform::<f32>::scale(64.0, -64.0)));
+        *path = bevy_prototype_lyon::entity::Path(
+            path.0.clone().transformed(
+                &tess::geom::Transform::<f32>::scale(64.0, -64.0)
+            )
+        );
     }
 }
 
@@ -205,7 +206,7 @@ pub fn ladder_init_system(
                             ShapeBundle {
                                 transform: Transform::from_translation(Vec3::new(
                                     (x as f32)*tile_size.x,
-                                    (y as f32)*tile_size.y, //TODO Reverse Y
+                                    (y as f32)*tile_size.y,
                                     1.0,
                                 )).with_scale(Vec3::splat(1.0)),
                                 path: GeometryBuilder::build_as(&shapes::SvgPathShape {
@@ -217,22 +218,22 @@ pub fn ladder_init_system(
                             },
                             Stroke::new(Color::BLACK, 2.0),
                         ))
-                            /*
+                        /*
                         .with_children(|parent_laddertile| {
                             parent_laddertile.spawn((
                                 Text2dBundle {
                                     text: Text::from_section("C0", TextStyle {
                                         font_size: 24.0,
-                                        color: Color::WHITE,
+                                        color: Color::BLACK,
                                         ..default()
                                     }).with_alignment(TextAlignment::Center),
                                     text_anchor: bevy::sprite::Anchor::Center,
-                                    transform: Transform::from_xyz(0.0, 48.0, 1.0),
+                                    transform: Transform::from_xyz(32.0, 64.0, 1.0),
                                     ..default()
                                 },
                             ));
                         })
-                            */
+                        */
                         .id()
                     }).collect()
                 }).collect()
