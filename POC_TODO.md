@@ -1,5 +1,48 @@
 # Prototype todo
 
+
+InputModule Component
+  Address?
+  DigitalInputs
+  AnalogInputs
+  MediaInputs?
+  UserInputs
+  Parent?
+OutputModule Component
+  Address? Could this be it's own component?
+  DigitalOutputs
+  AnalogOutputs
+  MediaOutputs
+  UserOutputs
+  Parent?
+PlcModule Component
+  InputModules
+  OutputModules
+  Program
+  State
+
+- [X] Define InputModule Component
+  - [X] OutputModule Component
+  - [X] PlcModule Component with static function to set outputs to inputs
+  - [X] add a bit of logic for testing
+
+
+Choose address assignments for IO modules?
+  Might be messy for sensor/actuators with low IO numbers?
+    Maybe not, if those belong to their accompanying scopes?
+
+Maybe name per object
+  Scoped by parent->child relationship
+    Maybe also still requiring some sort of mapping?
+    Also handles conflicts?
+OR just name per mapped object
+
+and what addressing the address space within the object?
+  maybe this is always index based?
+
+
+
+
 Let's change to not creating tiles until needed?
   Per Rung?
 

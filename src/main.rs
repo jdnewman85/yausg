@@ -10,6 +10,7 @@ use std::f32::consts::PI;
 mod camera;
 mod laddermap;
 mod utils;
+mod vladder;
 
 fn main() {
     App::new()
@@ -32,8 +33,13 @@ fn main() {
             laddermap::ladder_print_system,
             laddermap::ladder_path_update_system,
             laddermap::test_clear_tilemap_system,
+
+            vladder::init_debug_input_system,
+            vladder::debug_cpu_system,
         ))
         //.insert_resource(Msaa::Off)
+        .register_type::<vladder::InputModule>()
+        .register_type::<vladder::OutputModule>()
         .run();
 }
 
@@ -153,4 +159,6 @@ fn setup(
         Stroke::new(Color::BLACK, 1.0),
         Fill::color(Color::WHITE),
     ));
+
+    vladder::DebugCpuModule::spawn_new(&mut commands, 8, 8);
 }
