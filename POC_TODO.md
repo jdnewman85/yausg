@@ -1,5 +1,10 @@
 # Prototype todo
 
+Address Word - String
+  Allow for multiple same word?
+    Offset?
+    Size?
+
 
 InputModule Component
   Address?

@@ -11,10 +11,7 @@ pub struct OutputModule {
 }
 
 #[derive(Component)]
-pub struct DebugCpuModule {
-    digital_inputs: Entity,
-    digital_outputs: Entity,
-}
+pub struct DebugCpuModule;
 
 const DIGITAL_OFF: bool = false;
 const DIGITAL_ON: bool = !DIGITAL_OFF;
@@ -25,38 +22,23 @@ impl DebugCpuModule {
         digital_input_num: usize,
         digital_output_num: usize,
     ) -> Entity {
-        let input_module = commands.spawn(
-            InputModule{ digital: vec![DIGITAL_OFF; digital_input_num] }
-        ).id();
-        let output_module = commands.spawn(
-            OutputModule{ digital: vec![DIGITAL_OFF; digital_output_num] }
-        ).id();
-
-        let mut cpu_module = commands.spawn(
-            DebugCpuModule {
-                digital_inputs: input_module,
-                digital_outputs: output_module,
-            }
-        );
-        cpu_module.push_children(&vec![input_module, output_module]);
-
-        cpu_module.id()
+        commands.spawn((
+            DebugCpuModule,
+            InputModule{ digital: vec![DIGITAL_OFF; digital_input_num] },
+            OutputModule{ digital: vec![DIGITAL_OFF; digital_output_num] },
+        )).id()
     }
 }
 
 pub fn debug_cpu_system(
 //    mut commands: Commands,
-    input_module_query: Query<&InputModule, With<Parent>>,
-    mut output_module_query: Query<&mut OutputModule, With<Parent>>,
-    debug_module_query: Query<&DebugCpuModule>,
+    mut debug_module_query: Query<(&InputModule, &mut OutputModule), With<DebugCpuModule>>,
 ) {
-    for cpu in debug_module_query.iter() {
-        let input_module = input_module_query.get(cpu.digital_inputs).unwrap();
-        let mut output_module = output_module_query.get_mut(cpu.digital_outputs).unwrap();
+    for (inputs, mut outputs) in debug_module_query.iter_mut() {
         //TODO Assert size diff?
 
-        for (i, output) in output_module.digital.iter_mut().enumerate() {
-            *output = input_module.digital[i];
+        for (i, output) in outputs.digital.iter_mut().enumerate() {
+            *output = inputs.digital[i];
         }
     }
 }
