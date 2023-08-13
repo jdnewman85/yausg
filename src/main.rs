@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
