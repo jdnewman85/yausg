@@ -1,17 +1,32 @@
+#![allow(dead_code)]
+use std::collections::HashMap;
+
 use bevy::prelude::*;
 
+//TODO Combine with Output and have permissions?
 #[derive(Component, Reflect)]
 pub struct InputModule {
     digital: Vec<bool>,
 }
-
 #[derive(Component, Reflect)]
 pub struct OutputModule {
     digital: Vec<bool>,
 }
 
-#[derive(Component)]
-pub struct DebugCpuModule;
+#[derive(Default, Component)]
+pub struct DebugCpuModule {
+    mappings: HashMap<String, Entity>,
+}
+
+impl DebugCpuModule {
+    fn create_mapping(&mut self, address: String, io_module: Entity) {
+        //TODO try_insert when stable?
+        //TODO Handle collisions
+        //TODO Verify existence of module? Doesn't ensure prolonged existence
+        //TODO Verify that io_module is child of self?
+        self.mappings.insert(address, io_module);
+    }
+}
 
 const DIGITAL_OFF: bool = false;
 const DIGITAL_ON: bool = !DIGITAL_OFF;
@@ -23,7 +38,7 @@ impl DebugCpuModule {
         digital_output_num: usize,
     ) -> Entity {
         commands.spawn((
-            DebugCpuModule,
+            DebugCpuModule::default(),
             InputModule{ digital: vec![DIGITAL_OFF; digital_input_num] },
             OutputModule{ digital: vec![DIGITAL_OFF; digital_output_num] },
         )).id()
@@ -43,13 +58,3 @@ pub fn debug_cpu_system(
     }
 }
 
-pub fn init_debug_input_system(
-//    mut commands: Commands,
-    mut input_module_query: Query<&mut InputModule, Added<InputModule>>,
-) {
-    for mut input_module in input_module_query.iter_mut() {
-        for (i, input) in input_module.digital.iter_mut().enumerate() {
-            *input = i % 2 == 1;
-        }
-    }
-}

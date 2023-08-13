@@ -1,6 +1,24 @@
 # Prototype todo
 
+
+Change to using graph structure for rung/ladder?
+  Graph lib, w/ entities
+    Bevy Parent/Child
+      Reconstructed as needed for graphics, and events
+  *Problem* Would be difficult for floating, temporarily disconnected portions
+    would still need to store some positional info while editing anyway
+
+
 Address Word - String
+  Lazy binding?
+    Attempt from string
+  Once used for binding, keep entity?
+    With maybe update w/ OnChange?
+    Updates will always be known - ladder edits
+  To
+    Memory (through IO?)
+    IO
+    Execution environment
   Allow for multiple same word?
     Offset?
     Size?

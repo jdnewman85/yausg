@@ -33,9 +33,6 @@ fn main() {
             laddermap::ladder_print_system,
             laddermap::ladder_path_update_system,
             laddermap::test_clear_tilemap_system,
-
-            vladder::init_debug_input_system,
-            vladder::debug_cpu_system,
         ))
         //.insert_resource(Msaa::Off)
         .register_type::<vladder::InputModule>()
