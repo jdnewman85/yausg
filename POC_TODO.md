@@ -1,6 +1,11 @@
 # Prototype todo
 
 
+Probably need my own label type and maybe sub types as components
+  This would make addressing easier without having to crawl children
+  Or alteast easier to select the correct child entity
+
+
 Change to using graph structure for rung/ladder?
   Graph lib, w/ entities
     Bevy Parent/Child

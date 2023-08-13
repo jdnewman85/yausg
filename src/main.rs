@@ -32,7 +32,7 @@ fn main() {
             laddermap::ladder_init_system,
             laddermap::ladder_mouse_system,
             laddermap::ladder_print_system,
-            laddermap::ladder_path_update_system,
+            laddermap::ladder_tile_update_system,
             laddermap::test_clear_tilemap_system,
         ))
         //.insert_resource(Msaa::Off)

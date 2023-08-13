@@ -1,8 +1,12 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, input::mouse::MouseWheel};
 use bevy_prototype_lyon::prelude::*;
 
-#[derive(Clone, Copy, Debug)]
+use num_derive::FromPrimitive;
+
+#[derive(Clone, Copy, Default, Debug)]
+#[derive(FromPrimitive)]
 pub enum Wire {
+    #[default]
     Horz,
     Vert,
     LeftDown,
@@ -14,6 +18,7 @@ pub enum Wire {
     T180,
     T270,
     Cross,
+    _Length,
 }
 
 impl Wire {
@@ -30,22 +35,41 @@ impl Wire {
             Self::T180 => "M 0,0.5 H 1.0 M 0.5,0.5 V 0",
             Self::T270 => "M 0.5,0 V 1.0 M 0.5,0.5 H 0",
             Self::Cross => "M 0,0.5 H 1.0 M 0.5,0 V 1.0",
+            Self::_Length => unreachable!(),
         }.into()
+    }
+    fn scroll(&mut self, x: f32) {
+        let len = Self::_Length as i32;
+        let change = x.round() as i32;
+        let delta_index = *self as i32 + change;
+        let index = (delta_index + len) % len;
+        *self = num::FromPrimitive::from_i32(index).unwrap()
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Default, Debug)]
 enum Polarity {
+    #[default]
     NO,
     NC,
 }
 
-#[derive(Clone, Copy, Debug)]
+impl Polarity {
+    fn invert(&mut self) {
+        *self = match *self {
+            Polarity::NO => Polarity::NC,
+            Polarity::NC => Polarity::NO,
+        };
+    }
+}
+
+#[derive(Clone, Copy, Default, Debug)]
 enum ContactOrCoil {
+    #[default]
     Contact,
     Coil,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct BoolElement {
     contact_or_coil: ContactOrCoil,
     address: String,
@@ -55,7 +79,7 @@ pub struct BoolElement {
 impl BoolElement {
     fn path_string(&self) -> String {
         match (self.contact_or_coil, self.polarity) {
-            (ContactOrCoil::Contact, Polarity::NO) => "M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125 M 0,0.5 H 0.375",
+            (ContactOrCoil::Contact, Polarity::NO) =>"M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125 M 0,0.5 H 0.375",
             (ContactOrCoil::Contact, Polarity::NC) => "M 0.6875,0.25L 0.3125,0.75 M 0.375,0.5 H 0 M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125",
             (ContactOrCoil::Coil, Polarity::NO) => "M 0.75,0.5 H 1.0 M 0.25,0.5 H 0 M 0.5625,0.75 A 0.26046875,0.26046875 0 0 1 0.5625,0.25M 0.4375,0.25A 0.26046875,0.26046875 0 0 1 0.4375,0.75",
             (ContactOrCoil::Coil, Polarity::NC) => "M 0.6875,0.25L 0.3125,0.75 M 0.5625,0.75 A 0.26046875,0.26046875 0 0 1 0.5625,0.25M 0.4375,0.25A 0.26046875,0.26046875 0 0 1 0.4375,0.75 M 1.0,0.5 H 0.75 M 0,0.5 H 0.25",
@@ -64,7 +88,8 @@ impl BoolElement {
 }
 
 
-#[derive(Clone, Default, Component, Debug)]
+#[derive(Clone, Default, Debug)]
+#[derive(Component)]
 pub enum Tile {
     #[default]
     None,
@@ -110,7 +135,6 @@ impl LadderTileMap {
         }
     }
 
-    #[allow(dead_code)]
     pub fn apply_pos_fn(
         &self,
         func: TileMapPositionalFunc,
@@ -125,10 +149,12 @@ impl LadderTileMap {
     }
 }
 
-pub fn ladder_path_update_system(
-    mut tile_query: Query<(&Tile, &mut Path), Changed<Tile>>,
+pub fn ladder_tile_update_system(
+    mut commands: Commands,
+    mut tile_query: Query<(Entity, &Tile, &mut Path, Option<&Children>), Changed<Tile>>,
+    mut label_query: Query<(Entity, &mut Text), With<Parent>>,
 ) {
-    for (tile, mut path) in tile_query.iter_mut() {
+    for (tile_entity, tile, mut path, maybe_children) in tile_query.iter_mut() {
         *path = GeometryBuilder::build_as(&shapes::SvgPathShape {
             svg_path_string: tile.clone().path_string(),
             //svg_doc_size_in_px: Vec2::new(-1.0, 1.0),
@@ -139,6 +165,52 @@ pub fn ladder_path_update_system(
                 &tess::geom::Transform::<f32>::scale(64.0, -64.0)
             )
         );
+
+        let label_text = match tile {
+            Tile::None |
+            Tile::Wire(_) => "".to_string(),
+            Tile::Contact(bool_element) |
+            Tile::Coil(bool_element) => bool_element.address.clone(),
+        };
+        let should_have_label = !label_text.is_empty();
+
+        let style = TextStyle {
+            font_size: 24.0,
+            color: Color::BLACK,
+            ..default()
+        };
+        let new_label_text = Text::from_section(label_text, style.clone())
+            .with_alignment(TextAlignment::Center);
+
+        let mut has_label = false;
+        if let Some(children) = maybe_children {
+            for (label_entity, mut text) in label_query.iter_mut() {
+                let children_has_label = children.contains(&label_entity);
+                match (should_have_label, children_has_label) {
+                    (false, false) => (),
+                    (false, true) => commands.entity(label_entity).despawn(),
+                    (true, false) => (),
+                    (true, true) => {
+                        *text = new_label_text.clone();
+                        has_label = true;
+                    }
+                }
+            }
+        }
+
+        if should_have_label && !has_label {
+            commands.entity(tile_entity)
+                .with_children(|parent_laddertile| {
+                    parent_laddertile.spawn((
+                        Text2dBundle {
+                            text: new_label_text.clone(),
+                            text_anchor: bevy::sprite::Anchor::Center,
+                            transform: Transform::from_xyz(32.0, 64.0, 1.0),
+                            ..default()
+                        },
+                    ));
+                });
+        }
     }
 }
 
@@ -163,6 +235,7 @@ pub fn ladder_mouse_system(
     window_query: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     mouse_buttons: Res<Input<MouseButton>>,
+    mut scroll_events: EventReader<MouseWheel>,
     tilemap_query: Query<(&LadderTileMap, &Transform)>,
     mut tile_query: Query<&mut Tile>,
 ) {
@@ -192,15 +265,48 @@ pub fn ladder_mouse_system(
             dbg!("FIX ME:", tile_entity, cursor_tile_x, cursor_tile_y);
             return;
         };
+
+        //TODO impl further mouse interface
         if mouse_buttons.just_pressed(MouseButton::Left) {
-            //TODO impl
-            //let new_index = (*tile as usize + 1) % Tile::_Length as usize; //TODO Unuglify
-            //*tile = new_index.into();
+            let is_coil_column = cursor_tile_x == tilemap.width-1;
+            let contact_or_coil = match is_coil_column {
+                false => ContactOrCoil::Contact,
+                true => ContactOrCoil::Coil,
+            };
+
             *tile = Tile::Contact(BoolElement {
-                contact_or_coil: ContactOrCoil::Contact,
+                contact_or_coil,
                 address: "X0".into(),
                 polarity: Polarity::NO,
             });
+        }
+
+        if mouse_buttons.just_pressed(MouseButton::Right) {
+            let (is_none, is_wire) = match *tile {
+                Tile::None => (true, false),
+                Tile::Wire(_) => (false, true),
+                _ => (false, false),
+            };
+            let is_coil_column = cursor_tile_x == tilemap.width-1;
+
+            *tile = match (is_none, is_wire, is_coil_column) {
+                (false, _    , _     ) => Tile::None,
+                (true , _    , true  ) => tile.clone(), //TODO Opt, cloning self
+                (true , false, false ) => Tile::Wire(Wire::default()),
+                (true , true , false ) => Tile::None,
+            };
+        }
+
+        for event in scroll_events.iter() {
+            //TODO handle each event.unit differently
+            //TODO handle scroll values
+
+            match *tile {
+                Tile::None => { },
+                Tile::Contact(ref mut bool_element) |
+                Tile::Coil(ref mut bool_element) => bool_element.polarity.invert(),
+                Tile::Wire(ref mut wire) => wire.scroll(event.y),
+            }
         }
 
     }
@@ -247,28 +353,11 @@ pub fn ladder_init_system(
                                 path: GeometryBuilder::build_as(&shapes::SvgPathShape {
                                     svg_path_string: Tile::default().path_string(),
                                     svg_doc_size_in_px: Vec2::ZERO, //Vec2::new(64.0, 64.0),
-                                    //svg_doc_size_in_px: Vec2::Y * 128.0, //TODO TEMP Attempt y offset
                                 }),
                                 ..default()
                             },
                             Stroke::new(Color::BLACK, 2.0),
                         ))
-                        /*
-                        .with_children(|parent_laddertile| {
-                            parent_laddertile.spawn((
-                                Text2dBundle {
-                                    text: Text::from_section("C0", TextStyle {
-                                        font_size: 24.0,
-                                        color: Color::BLACK,
-                                        ..default()
-                                    }).with_alignment(TextAlignment::Center),
-                                    text_anchor: bevy::sprite::Anchor::Center,
-                                    transform: Transform::from_xyz(32.0, 64.0, 1.0),
-                                    ..default()
-                                },
-                            ));
-                        })
-                        */
                         .id()
                     }).collect()
                 }).collect()
