@@ -3,6 +3,8 @@ use bevy_prototype_lyon::prelude::*;
 
 use num_derive::FromPrimitive;
 
+use crate::vladder::DebugCpuModule;
+
 #[derive(Clone, Copy, Default, Debug)]
 #[derive(FromPrimitive)]
 pub enum Wire {
@@ -87,6 +89,9 @@ impl BoolElement {
     }
 }
 
+#[derive(Component)]
+pub struct TileLabel;
+
 
 #[derive(Clone, Default, Debug)]
 #[derive(Component)]
@@ -105,6 +110,15 @@ impl Tile {
             Self::Contact(contact) => contact.path_string(),
             Self::Coil(coil) => coil.path_string(),
             Self::Wire(wire) => wire.path_string(),
+        }
+    }
+
+    fn label_string(&self) -> String {
+        match self {
+            Self::None |
+            Self::Wire(_) => "".to_string(),
+            Self::Contact(bool_element) |
+            Self::Coil(bool_element) => bool_element.address.clone(),
         }
     }
 }
@@ -149,12 +163,11 @@ impl LadderTileMap {
     }
 }
 
-pub fn ladder_tile_update_system(
-    mut commands: Commands,
-    mut tile_query: Query<(Entity, &Tile, &mut Path, Option<&Children>), Changed<Tile>>,
-    mut label_query: Query<(Entity, &mut Text), With<Parent>>,
+pub fn ladder_tile_path_update_system(
+    mut tile_query: Query<(&Tile, &mut Path), Changed<Tile>>,
 ) {
-    for (tile_entity, tile, mut path, maybe_children) in tile_query.iter_mut() {
+    for (tile, mut path) in tile_query.iter_mut() {
+        //Build paths
         *path = GeometryBuilder::build_as(&shapes::SvgPathShape {
             svg_path_string: tile.clone().path_string(),
             //svg_doc_size_in_px: Vec2::new(-1.0, 1.0),
@@ -165,51 +178,16 @@ pub fn ladder_tile_update_system(
                 &tess::geom::Transform::<f32>::scale(64.0, -64.0)
             )
         );
+    }
+}
 
-        let label_text = match tile {
-            Tile::None |
-            Tile::Wire(_) => "".to_string(),
-            Tile::Contact(bool_element) |
-            Tile::Coil(bool_element) => bool_element.address.clone(),
-        };
-        let should_have_label = !label_text.is_empty();
-
-        let style = TextStyle {
-            font_size: 24.0,
-            color: Color::BLACK,
-            ..default()
-        };
-        let new_label_text = Text::from_section(label_text, style.clone())
-            .with_alignment(TextAlignment::Center);
-
-        let mut has_label = false;
-        if let Some(children) = maybe_children {
-            for (label_entity, mut text) in label_query.iter_mut() {
-                let children_has_label = children.contains(&label_entity);
-                match (should_have_label, children_has_label) {
-                    (false, false) => (),
-                    (false, true) => commands.entity(label_entity).despawn(),
-                    (true, false) => (),
-                    (true, true) => {
-                        *text = new_label_text.clone();
-                        has_label = true;
-                    }
-                }
-            }
-        }
-
-        if should_have_label && !has_label {
-            commands.entity(tile_entity)
-                .with_children(|parent_laddertile| {
-                    parent_laddertile.spawn((
-                        Text2dBundle {
-                            text: new_label_text.clone(),
-                            text_anchor: bevy::sprite::Anchor::Center,
-                            transform: Transform::from_xyz(32.0, 64.0, 1.0),
-                            ..default()
-                        },
-                    ));
-                });
+pub fn ladder_debug_cpu_debug_system(
+    tilemap_query: Query<(&LadderTileMap, Option<&DebugCpuModule>)>,
+) {
+    for (_tilemap, maybe_debug_cpu) in tilemap_query.iter() {
+        //TODO TEMP - Testing debug_cpu
+        if let Some(debug_cpu) = maybe_debug_cpu {
+            debug_cpu.digital("Xamo69".to_string()).unwrap();
         }
     }
 }
@@ -290,10 +268,10 @@ pub fn ladder_mouse_system(
             let is_coil_column = cursor_tile_x == tilemap.width-1;
 
             *tile = match (is_none, is_wire, is_coil_column) {
-                (false, _    , _     ) => Tile::None,
-                (true , _    , true  ) => tile.clone(), //TODO Opt, cloning self
-                (true , false, false ) => Tile::Wire(Wire::default()),
-                (true , true , false ) => Tile::None,
+                (false, _    , _    ) => Tile::None,
+                (true , _    , true ) => tile.clone(), //TODO Opt, cloning self
+                (true , false, false) => Tile::Wire(Wire::default()),
+                (true , true , false) => Tile::None,
             };
         }
 
@@ -337,32 +315,206 @@ pub fn ladder_init_system(
         //let tile_size = Vec2::splat(64.0);
         let tile_size = Vec2::new(64.0, 64.0);
         commands.entity(tilemap_entity)
-            .with_children(|parent_tilemap| {
-            tilemap.tiles =
-                (0..tilemap.width).map(|x| {
-                    (0..tilemap.height).map(|y| {
-                        parent_tilemap.spawn((
-                            Name::new(format!("Tile ({x},{y})")),
-                            Tile::default(),
-                            ShapeBundle {
-                                transform: Transform::from_translation(Vec3::new(
-                                    (x as f32)*tile_size.x,
-                                    (y as f32)*tile_size.y,
-                                    1.0,
-                                )).with_scale(Vec3::splat(1.0)),
-                                path: GeometryBuilder::build_as(&shapes::SvgPathShape {
-                                    svg_path_string: Tile::default().path_string(),
-                                    svg_doc_size_in_px: Vec2::ZERO, //Vec2::new(64.0, 64.0),
-                                }),
-                                ..default()
-                            },
-                            Stroke::new(Color::BLACK, 2.0),
-                        ))
-                        .id()
+            .with_children(|tilemap_childbuilder| {
+                tilemap.tiles =
+                    (0..tilemap.width).map(|x| {
+                        (0..tilemap.height).map(|y| {
+                            spawn_tile(tilemap_childbuilder, Vec2::new(x as f32, y as f32), tile_size)
+                        }).collect()
                     }).collect()
-                }).collect()
-            ;
-        });
+                ;
+            });
     }
 }
 
+fn spawn_tile(
+    tilemap_childbuilder: &mut ChildBuilder,
+    position: Vec2,
+    tile_size: Vec2
+) -> Entity {
+    let (x, y) = (position.x, position.y);
+    let tile = Tile::default();
+    let label_text = tile.label_string();
+
+    let mut tile_commands = tilemap_childbuilder.spawn((
+        Name::new(format!("Tile ({x},{y})")),
+        tile,
+        ShapeBundle {
+            transform: Transform::from_translation(Vec3::new(
+                x*tile_size.x,
+                y*tile_size.y,
+                1.0,
+            )).with_scale(Vec3::splat(1.0)),
+            path: GeometryBuilder::build_as(&shapes::SvgPathShape {
+                svg_path_string: Tile::default().path_string(),
+                svg_doc_size_in_px: Vec2::ZERO, //Vec2::new(64.0, 64.0),
+            }),
+            ..default()
+        },
+        Stroke::new(Color::BLACK, 2.0),
+    ));
+
+    //Label
+    let style = TextStyle {
+        font_size: 24.0,
+        color: Color::BLACK,
+        ..default()
+    };
+
+    //TODO TEMP
+    let label_text = "Z99";
+    let should_have_label = !label_text.is_empty();
+    let new_label_text = Text::from_section(label_text, style.clone())
+        .with_alignment(TextAlignment::Center);
+
+    tile_commands.with_children(|tile_childbuilder| {
+        tile_childbuilder.spawn((
+            TileLabel{},
+            Text2dBundle {
+                text: new_label_text.clone(),
+                text_anchor: bevy::sprite::Anchor::Center,
+                transform: Transform::from_xyz(32.0, 64.0, 1.0),
+                ..default()
+            },
+        ));
+    });
+
+    tile_commands.id()
+}
+
+//TODO Update to assume single, and use our new TileLabel
+pub fn ladder_tile_label_update_system(
+    mut commands: Commands,
+    mut tile_query: Query<(Entity, &Tile, &Children), Changed<Tile>>,
+    mut label_query: Query<(Entity, &mut Text, &Parent), With<TileLabel>>,
+) {
+    for (tile_entity, tile, tile_children) in tile_query.iter_mut() {
+        let style = TextStyle {
+            font_size: 24.0,
+            color: Color::BLACK,
+            ..default()
+        };
+
+        let label_text = tile.label_string();
+        let new_label_text = Text::from_section(label_text, style)
+            .with_alignment(TextAlignment::Center);
+
+        for (label_entity, mut text, _parent) in label_query.iter_mut() {
+            let label_for_this_tile = tile_children.contains(&label_entity);
+            if label_for_this_tile {
+                *text = new_label_text.clone();
+            }
+        }
+    }
+}
+
+
+//TODO Instead add a highlight component?
+pub fn ladder_mouse_highlight_system(
+    window_query: Query<&Window>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+//    mouse_buttons: Res<Input<MouseButton>>,
+//    mut scroll_events: EventReader<MouseWheel>,
+    tilemap_query: Query<(&LadderTileMap, &Transform)>,
+    mut stroke_query: Query<&mut Stroke, With<Tile>>,
+/*
+    tilemap_query: Query<(&LadderTileMap, Option<&DebugCpuModule>)>,
+    mut tile_query: Query<(Entity, &Tile, &mut Path, Option<&Children>), Changed<Tile>>,
+    mut label_query: Query<(Entity, &mut Text), With<Parent>>,
+*/
+) {
+
+    let window = window_query.single();
+    let Some(cursor_viewport_position) = window.cursor_position() else { return; };
+
+    let (camera, camera_transform) = camera_query.single();
+    let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
+
+    for (tilemap, tilemap_transform) in tilemap_query.iter() {
+        // TODO: Into tilemap method
+        if tilemap.tiles.is_empty() { return; };
+        let tile_size = Vec2::splat(64.0);
+
+        let tilemap_pixel_size = Vec2::new(tilemap.width as f32, tilemap.height as f32) * tile_size;
+        let tilemap_position = tilemap_transform.translation.truncate();
+        let tilemap_rect = Rect::from_corners(tilemap_position, tilemap_position + tilemap_pixel_size);
+        if !tilemap_rect.contains(cursor_world_position) { continue; };
+
+        let delta = cursor_world_position - tilemap_transform.translation.truncate();
+        let cursor_tile_position = delta / tile_size;
+        let cursor_tile_x = cursor_tile_position.x as usize;
+        let cursor_tile_y = cursor_tile_position.y as usize;
+
+        let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
+        let Ok(mut stroke) = stroke_query.get_mut(tile_entity) else {
+            //TODO Fix
+            dbg!("FIX ME:", tile_entity, cursor_tile_x, cursor_tile_y);
+            return;
+        };
+
+        *stroke = Stroke::new(Color::GREEN, 2.0);
+    }
+}
+
+/* OLD
+//TODO Update to assume single, and use our new TileLabel
+pub fn ladder_tile_label_update_system(
+    mut commands: Commands,
+    tile_query: Query<(Entity, &Tile, Option<&Children>), Changed<Tile>>,
+    mut label_query: Query<(Entity, &mut Text), With<Parent>>,
+) {
+    for (tile_entity, tile, maybe_children) in tile_query.iter() {
+        let style = TextStyle {
+            font_size: 24.0,
+            color: Color::BLACK,
+            ..default()
+        };
+
+        let label_text = tile.label_string();
+        let should_have_label = !label_text.is_empty();
+        let new_label_text = Text::from_section(label_text, style.clone())
+            .with_alignment(TextAlignment::Center);
+
+        let mut has_label = false;
+        if let Some(children) = maybe_children {
+            //TODO for each + contains here is a bit icky, can it be accomplished with
+            //get_many_mut?
+            //Actually, here we know there should be one...
+            for (label_entity, mut text) in label_query.iter_mut() {
+                let children_has_label = children.contains(&label_entity);
+                match (should_have_label, children_has_label) {
+                    (false, false) =>
+                        //Nothing to be done
+                        (),
+                    (false, true) =>
+                        //Needs label removed
+                        commands.entity(label_entity).despawn(),
+                    (true, false) =>
+                        //Needs label created, handled below
+                        (),
+                    (true, true) => {
+                        //Needs label updated
+                        *text = new_label_text.clone();
+                        has_label = true;
+                    }
+                }
+            }
+        }
+
+        //Label - Create if needed
+        if should_have_label && !has_label {
+            commands.entity(tile_entity)
+                .with_children(|parent_laddertile| {
+                    parent_laddertile.spawn((
+                        Text2dBundle {
+                            text: new_label_text.clone(),
+                            text_anchor: bevy::sprite::Anchor::Center,
+                            transform: Transform::from_xyz(32.0, 64.0, 1.0),
+                            ..default()
+                        },
+                    ));
+                });
+        }
+    }
+}
+*/

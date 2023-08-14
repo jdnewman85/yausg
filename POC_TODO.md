@@ -1,5 +1,60 @@
 # Prototype todo
 
+Components for easy querying of child stuff, such as labels?
+  Label component would make use of the text component
+  Queries would be for something with both label, text, and parent for needed data
+
+Each tilemap should have it's own focus, highlight, etc?
+  If each keep their state, then simultaneous editing might be easier
+  Matches with components better?
+
+Should focus, and highlight be
+  Component based
+  Stored in tilemap/whatever, and calculated on change?
+  Both somehow?
+
+  If a component
+    System can query these specifically
+      For styling, and unstyling
+
+
+- [ ] Add TileLabel component
+  Used with Text component, and translation
+  - [ ] Use this to make queries easier
+
+
+
+- [ ] TileStyleSystem
+    Updates tile graphics in response to system state
+    Runs after other systems
+  - [ ] Mouseover Highlight
+      Background color change
+  - [ ] Focus
+      Box around?
+  - [ ] Text entry?
+      Cursor?
+  - [ ] Based on IO state
+      Color of stroke
+
+- [ ] Add Parent/Child components to tilemap/tile queryseseieses
+- [ ] Add a temporary mapping
+- [ ] When building a tile, use parent tilemap for
+  - [ ] styling data
+  - [ ] checking mapping
+- [ ] If mapping exists,
+  - [ ] Check state of digital value
+  - [ ]   style according to state
+- [ ] Else, style accordingly
+  - [ ] Possibly by colorizing both the tile, and the label
+    - [ ] potentially with syntax like path highlighting
+    - [ ] showing the unmatched erroneous portion
+
+Try to generalize ladder display
+  Take mouse events and produce set_tile, etc trait interface commands
+    To/from il
+    To/from graph
+  Tile based editor
+  Node based editor
 
 Probably need my own label type and maybe sub types as components
   This would make addressing easier without having to crawl children

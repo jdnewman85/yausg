@@ -1,5 +1,7 @@
 #![allow(dead_code)]
-use std::collections::HashMap;
+use std::{collections::HashMap, error::{Error, self}, fmt};
+
+use regex::Regex;
 
 use bevy::prelude::*;
 
@@ -31,17 +33,44 @@ impl DebugCpuModule {
 const DIGITAL_OFF: bool = false;
 const DIGITAL_ON: bool = !DIGITAL_OFF;
 
+#[derive(Debug)]
+struct AddressError;
+impl error::Error for AddressError {}
+impl fmt::Display for AddressError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(TODO: Better) invalid address")
+    }
+}
+
+#[derive(Bundle)]
+pub struct DebugCpuBundle {
+    debug_cpu: DebugCpuModule,
+    input_module: InputModule,
+    output_module: OutputModule,
+}
+
 impl DebugCpuModule {
-    pub fn spawn_new(
-        commands: &mut Commands,
+    pub fn new(
         digital_input_num: usize,
         digital_output_num: usize,
-    ) -> Entity {
-        commands.spawn((
-            DebugCpuModule::default(),
-            InputModule{ digital: vec![DIGITAL_OFF; digital_input_num] },
-            OutputModule{ digital: vec![DIGITAL_OFF; digital_output_num] },
-        )).id()
+    ) -> DebugCpuBundle {
+        DebugCpuBundle {
+            debug_cpu: DebugCpuModule::default(),
+            input_module: InputModule{ digital: vec![DIGITAL_OFF; digital_input_num] },
+            output_module: OutputModule{ digital: vec![DIGITAL_OFF; digital_output_num] },
+        }
+    }
+
+    pub fn digital(&self, address: String) -> Result<bool, Box<dyn Error>> {
+        let re = Regex::new(r"([[:alpha:]]+)(\d+)").unwrap();
+        let captures = re.captures(&address).ok_or(AddressError)?;
+        let word = captures.get(1).ok_or(AddressError)?;
+        let number = captures.get(2).ok_or(AddressError)?;
+
+        //TODO Finish
+        //dbg!(word, number);
+
+        Ok(true)
     }
 }
 
@@ -57,4 +86,3 @@ pub fn debug_cpu_system(
         }
     }
 }
-
