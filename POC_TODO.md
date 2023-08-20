@@ -1,5 +1,14 @@
 # Prototype todo
 
+Entity is versioned
+  So let's store child entity references as needed
+  Much less overhead compared to parent->child
+  May still be useful to use the parent->child relationship for transform/offset capability
+  Maybe children that are simply groups?
+    Would provide a group offset when useful
+    With no offset, provides clean children grouping
+      May be useful for things like collection of collision boxes
+
 Components for easy querying of child stuff, such as labels?
   Label component would make use of the text component
   Queries would be for something with both label, text, and parent for needed data

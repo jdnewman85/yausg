@@ -98,17 +98,16 @@ pub struct TileLabel;
 pub enum Tile {
     #[default]
     None,
-    Contact(BoolElement),
-    Coil(BoolElement),
+    BoolElement(BoolElement),
     Wire(Wire),
 }
 
 impl Tile {
+    //TODO trait?
     fn path_string(&self) -> String {
         match self {
-            Self::None => "".into(),
-            Self::Contact(contact) => contact.path_string(),
-            Self::Coil(coil) => coil.path_string(),
+            Self::None => "".into(), //TODO Return Option<String>?
+            Self::BoolElement(bool_element) => bool_element.path_string(),
             Self::Wire(wire) => wire.path_string(),
         }
     }
@@ -117,8 +116,7 @@ impl Tile {
         match self {
             Self::None |
             Self::Wire(_) => "".to_string(),
-            Self::Contact(bool_element) |
-            Self::Coil(bool_element) => bool_element.address.clone(),
+            Self::BoolElement(bool_element) => bool_element.address.clone(),
         }
     }
 }
@@ -252,9 +250,9 @@ pub fn ladder_mouse_system(
                 true => ContactOrCoil::Coil,
             };
 
-            *tile = Tile::Contact(BoolElement {
+            *tile = Tile::BoolElement(BoolElement {
                 contact_or_coil,
-                address: "X0".into(),
+                address: "Z09".into(),
                 polarity: Polarity::NO,
             });
         }
@@ -281,8 +279,7 @@ pub fn ladder_mouse_system(
 
             match *tile {
                 Tile::None => { },
-                Tile::Contact(ref mut bool_element) |
-                Tile::Coil(ref mut bool_element) => bool_element.polarity.invert(),
+                Tile::BoolElement(ref mut bool_element) => bool_element.polarity.invert(),
                 Tile::Wire(ref mut wire) => wire.scroll(event.y),
             }
         }
@@ -361,9 +358,6 @@ fn spawn_tile(
         ..default()
     };
 
-    //TODO TEMP
-    let label_text = "Z99";
-    let should_have_label = !label_text.is_empty();
     let new_label_text = Text::from_section(label_text, style.clone())
         .with_alignment(TextAlignment::Center);
 
@@ -384,11 +378,10 @@ fn spawn_tile(
 
 //TODO Update to assume single, and use our new TileLabel
 pub fn ladder_tile_label_update_system(
-    mut commands: Commands,
-    mut tile_query: Query<(Entity, &Tile, &Children), Changed<Tile>>,
+    mut tile_query: Query<(&Tile, &Children), Changed<Tile>>,
     mut label_query: Query<(Entity, &mut Text, &Parent), With<TileLabel>>,
 ) {
-    for (tile_entity, tile, tile_children) in tile_query.iter_mut() {
+    for (tile, tile_children) in tile_query.iter_mut() {
         let style = TextStyle {
             font_size: 24.0,
             color: Color::BLACK,
@@ -455,66 +448,3 @@ pub fn ladder_mouse_highlight_system(
         *stroke = Stroke::new(Color::GREEN, 2.0);
     }
 }
-
-/* OLD
-//TODO Update to assume single, and use our new TileLabel
-pub fn ladder_tile_label_update_system(
-    mut commands: Commands,
-    tile_query: Query<(Entity, &Tile, Option<&Children>), Changed<Tile>>,
-    mut label_query: Query<(Entity, &mut Text), With<Parent>>,
-) {
-    for (tile_entity, tile, maybe_children) in tile_query.iter() {
-        let style = TextStyle {
-            font_size: 24.0,
-            color: Color::BLACK,
-            ..default()
-        };
-
-        let label_text = tile.label_string();
-        let should_have_label = !label_text.is_empty();
-        let new_label_text = Text::from_section(label_text, style.clone())
-            .with_alignment(TextAlignment::Center);
-
-        let mut has_label = false;
-        if let Some(children) = maybe_children {
-            //TODO for each + contains here is a bit icky, can it be accomplished with
-            //get_many_mut?
-            //Actually, here we know there should be one...
-            for (label_entity, mut text) in label_query.iter_mut() {
-                let children_has_label = children.contains(&label_entity);
-                match (should_have_label, children_has_label) {
-                    (false, false) =>
-                        //Nothing to be done
-                        (),
-                    (false, true) =>
-                        //Needs label removed
-                        commands.entity(label_entity).despawn(),
-                    (true, false) =>
-                        //Needs label created, handled below
-                        (),
-                    (true, true) => {
-                        //Needs label updated
-                        *text = new_label_text.clone();
-                        has_label = true;
-                    }
-                }
-            }
-        }
-
-        //Label - Create if needed
-        if should_have_label && !has_label {
-            commands.entity(tile_entity)
-                .with_children(|parent_laddertile| {
-                    parent_laddertile.spawn((
-                        Text2dBundle {
-                            text: new_label_text.clone(),
-                            text_anchor: bevy::sprite::Anchor::Center,
-                            transform: Transform::from_xyz(32.0, 64.0, 1.0),
-                            ..default()
-                        },
-                    ));
-                });
-        }
-    }
-}
-*/
