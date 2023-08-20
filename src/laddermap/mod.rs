@@ -71,7 +71,7 @@ enum ContactOrCoil {
     Contact,
     Coil,
 }
-#[derive(Clone, Default, Debug)]
+#[derive(Clone,  Debug)]
 pub struct BoolElement {
     contact_or_coil: ContactOrCoil,
     address: String,
@@ -88,6 +88,17 @@ impl BoolElement {
         }.into()
     }
 }
+
+//TODO TEMP?
+//Keeps reference to the child that contains the label
+//ALlowing for easy/fast reference into the label child entity
+//Allows for easy addition/removal of the label in BoolElementLabel added/changed systems
+//Modification would still be on BoolElement
+//
+// *Maybe* Add the reference in added of the label, using the parent
+//
+#[derive(Component)]
+pub struct TileLabelRef(Entity);
 
 #[derive(Component)]
 pub struct TileLabel;
@@ -376,31 +387,36 @@ fn spawn_tile(
     tile_commands.id()
 }
 
-//TODO Update to assume single, and use our new TileLabel
-pub fn ladder_tile_label_update_system(
-    mut tile_query: Query<(&Tile, &Children), Changed<Tile>>,
-    mut label_query: Query<(Entity, &mut Text, &Parent), With<TileLabel>>,
+//Adds references to TileLabel child as TileLabelRef component on parent
+pub fn tile_label_reference_system(
+    mut commands: Commands,
+    label_query: Query<(Entity, &Parent), Added<TileLabel>>,
+    tile_query: Query<Entity, With<Tile>>,
 ) {
-    for (tile, tile_children) in tile_query.iter_mut() {
-        let style = TextStyle {
-            font_size: 24.0,
-            color: Color::BLACK,
-            ..default()
-        };
-
-        let label_text = tile.label_string();
-        let new_label_text = Text::from_section(label_text, style)
-            .with_alignment(TextAlignment::Center);
-
-        for (label_entity, mut text, _parent) in label_query.iter_mut() {
-            let label_for_this_tile = tile_children.contains(&label_entity);
-            if label_for_this_tile {
-                *text = new_label_text.clone();
-            }
-        }
+    for (label_entity, parent) in label_query.iter() {
+        let parent_tile_entity = tile_query.get(parent.get()).unwrap();
+        commands.entity(parent_tile_entity).insert(
+            TileLabelRef(label_entity)
+        );
     }
 }
 
+pub fn ladder_tile_label_update_system(
+    mut tile_query: Query<(&Tile, &TileLabelRef), Changed<Tile>>,
+    mut label_query: Query<&mut Text, With<TileLabel>>,
+) {
+    for (tile, tile_label_ref) in tile_query.iter_mut() {
+        let mut label_text = label_query.get_mut(tile_label_ref.0).unwrap();
+        *label_text = Text::from_section(
+            tile.label_string(),
+            TextStyle {
+                font_size: 24.0,
+                color: Color::BLACK,
+                ..default()
+            }
+        ).with_alignment(TextAlignment::Center);
+    }
+}
 
 //TODO Instead add a highlight component?
 pub fn ladder_mouse_highlight_system(

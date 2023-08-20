@@ -1,5 +1,7 @@
 # Prototype todo
 
+Need effort in keeping display/action systems separate, yet synced properly
+
 Entity is versioned
   So let's store child entity references as needed
   Much less overhead compared to parent->child
