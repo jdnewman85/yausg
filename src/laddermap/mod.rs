@@ -104,6 +104,13 @@ pub struct TileLabelRef(Entity);
 pub struct TileLabel;
 
 
+#[derive(Component)]
+pub struct FocusedRef(Entity);
+
+#[derive(Component)]
+pub struct Focused;
+
+
 #[derive(Clone, Default, Debug)]
 #[derive(Component)]
 pub enum Tile {
@@ -218,6 +225,75 @@ pub fn ladder_print_system(
     }
 }
 
+pub fn ladder_mouse_input_system(
+    mut commands: Commands,
+    window_query: Query<&Window>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    mut tilemap_query: Query<(Entity, &LadderTileMap, &Transform, Option<&mut FocusedRef>)>,
+    mut tile_query: Query<&mut Tile>,
+) {
+    let window = window_query.single();
+    let (camera, camera_transform) = camera_query.single();
+
+    let Some(cursor_viewport_position) = window.cursor_position() else { return; };
+    let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
+
+    for (tilemap_entity, tilemap, tilemap_transform, maybe_focused_ref) in tilemap_query.iter_mut() {
+        if tilemap.tiles.is_empty() { return; };
+        let tile_size = Vec2::splat(64.0);
+
+        let tilemap_position = tilemap_transform.translation.truncate();
+        let delta = cursor_world_position - tilemap_position;
+        let tilemap_pixel_size = Vec2::new(tilemap.width as f32, tilemap.height as f32) * tile_size;
+
+        let tilemap_rect = Rect::from_corners(tilemap_position, tilemap_position + tilemap_pixel_size);
+        if !tilemap_rect.contains(cursor_world_position) { continue; };
+
+        let cursor_tile_x = (delta.x / tile_size.x) as usize;
+        let cursor_tile_y = (delta.y / tile_size.y) as usize;
+
+        let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
+        let Ok(mut _tile) = tile_query.get_mut(tile_entity) else {
+            //TODO Fix
+            dbg!("FIX ME:", tile_entity, cursor_tile_x, cursor_tile_y);
+            return;
+        };
+
+        match maybe_focused_ref {
+            Some(mut focused_tile) => {
+                let focused_tile_entity = (*focused_tile).0;
+                if focused_tile_entity != tile_entity {
+                    commands.entity(focused_tile_entity).remove::<Focused>();
+                    (*focused_tile).0 = tile_entity;
+                    commands.entity(tile_entity).insert(Focused);
+                }
+            },
+            None => {
+                commands.entity(tilemap_entity).insert(FocusedRef(tile_entity));
+                commands.entity(tile_entity).insert(Focused);
+            },
+        }
+    }
+}
+
+pub fn ladder_tile_highlight_system(
+    mut tile_query: Query<&mut Stroke, Added<Focused>>,
+) {
+    for mut stroke in tile_query.iter_mut() {
+        *stroke = Stroke::new(Color::GREEN, 2.0);
+    }
+}
+pub fn ladder_tile_unhighlight_system(
+    mut removed_focus_entities: RemovedComponents<Focused>,
+    mut tile_query: Query<&mut Stroke, Without<Focused>>,
+) {
+    for unfocused_entity in &mut removed_focus_entities {
+        let mut stroke = tile_query.get_mut(unfocused_entity).unwrap();
+        *stroke = Stroke::new(Color::BLACK, 1.0);
+    }
+}
+
+
 pub fn ladder_mouse_system(
     window_query: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
@@ -236,10 +312,10 @@ pub fn ladder_mouse_system(
         if tilemap.tiles.is_empty() { return; };
         let tile_size = Vec2::splat(64.0);
 
-        let delta = cursor_world_position - tilemap_transform.translation.truncate();
+        let tilemap_position = tilemap_transform.translation.truncate();
+        let delta = cursor_world_position - tilemap_position;
         let tilemap_pixel_size = Vec2::new(tilemap.width as f32, tilemap.height as f32) * tile_size;
 
-        let tilemap_position = tilemap_transform.translation.truncate();
         let tilemap_rect = Rect::from_corners(tilemap_position, tilemap_position + tilemap_pixel_size);
         if !tilemap_rect.contains(cursor_world_position) { continue; };
 
@@ -320,28 +396,27 @@ pub fn ladder_init_system(
     mut tilemap_query: Query<(&mut LadderTileMap, Entity), Added<LadderTileMap>>,
 ) {
     for (mut tilemap, tilemap_entity) in tilemap_query.iter_mut() {
-        //let tile_size = Vec2::splat(64.0);
-        let tile_size = Vec2::new(64.0, 64.0);
         commands.entity(tilemap_entity)
-            .with_children(|tilemap_childbuilder| {
-                tilemap.tiles =
-                    (0..tilemap.width).map(|x| {
-                        (0..tilemap.height).map(|y| {
-                            spawn_tile(tilemap_childbuilder, Vec2::new(x as f32, y as f32), tile_size)
-                        }).collect()
+        .with_children(|tilemap_childbuilder| {
+            tilemap.tiles =
+                (0..tilemap.width).map(|x| {
+                    (0..tilemap.height).map(|y| {
+                        spawn_tile(tilemap_childbuilder, Tile::default(), Vec2::new(x as f32, y as f32))
                     }).collect()
-                ;
-            });
+                }).collect()
+            ;
+        });
     }
 }
 
 fn spawn_tile(
     tilemap_childbuilder: &mut ChildBuilder,
+    tile: Tile,
     position: Vec2,
-    tile_size: Vec2
 ) -> Entity {
+    //let tile_size = Vec2::splat(64.0);
+    let tile_size = Vec2::new(64.0, 64.0);
     let (x, y) = (position.x, position.y);
-    let tile = Tile::default();
     let label_text = tile.label_string();
 
     let mut tile_commands = tilemap_childbuilder.spawn((
@@ -362,6 +437,14 @@ fn spawn_tile(
         Stroke::new(Color::BLACK, 2.0),
     ));
 
+    tile_commands.with_children(|tile_childbuilder| {
+        spawn_tilelabel(tile_childbuilder, label_text);
+    });
+
+    tile_commands.id()
+}
+
+fn spawn_tilelabel(tile_childbuilder: &mut ChildBuilder, label_text: String) {
     //Label
     let style = TextStyle {
         font_size: 24.0,
@@ -369,22 +452,18 @@ fn spawn_tile(
         ..default()
     };
 
-    let new_label_text = Text::from_section(label_text, style.clone())
+    let new_label_text = Text::from_section(label_text, style)
         .with_alignment(TextAlignment::Center);
 
-    tile_commands.with_children(|tile_childbuilder| {
-        tile_childbuilder.spawn((
-            TileLabel{},
-            Text2dBundle {
-                text: new_label_text.clone(),
-                text_anchor: bevy::sprite::Anchor::Center,
-                transform: Transform::from_xyz(32.0, 64.0, 1.0),
-                ..default()
-            },
-        ));
-    });
-
-    tile_commands.id()
+    tile_childbuilder.spawn((
+        TileLabel{},
+        Text2dBundle {
+            text: new_label_text.clone(),
+            text_anchor: bevy::sprite::Anchor::Center,
+            transform: Transform::from_xyz(32.0, 64.0, 1.0),
+            ..default()
+        },
+    ));
 }
 
 //Adds references to TileLabel child as TileLabelRef component on parent

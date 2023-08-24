@@ -35,9 +35,13 @@ fn main() {
             laddermap::ladder_tile_path_update_system,
             //laddermap::ladder_tile_label_update_system,
             laddermap::test_clear_tilemap_system,
-            laddermap::ladder_mouse_highlight_system,
+            //laddermap::ladder_mouse_highlight_system,
             laddermap::tile_label_reference_system,
             laddermap::ladder_tile_label_update_system,
+
+            laddermap::ladder_mouse_input_system,
+            laddermap::ladder_tile_highlight_system,
+            laddermap::ladder_tile_unhighlight_system,
         ))
         //.insert_resource(Msaa::Off)
         .register_type::<vladder::InputModule>()
