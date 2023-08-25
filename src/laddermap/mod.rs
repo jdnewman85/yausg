@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use bevy::{prelude::*, input::mouse::MouseWheel};
 use bevy_prototype_lyon::prelude::*;
 
@@ -95,6 +96,12 @@ pub struct TileLabelRef(Entity);
 #[derive(Component)]
 pub struct TileLabel;
 
+impl Deref for TileLabelRef {
+    type Target = Entity;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(Component)]
 pub struct HoveredRef(Entity);
@@ -102,8 +109,22 @@ pub struct HoveredRef(Entity);
 #[derive(Component)]
 pub struct Hovered;
 
+impl Deref for HoveredRef {
+    type Target = Entity;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Component)]
 pub struct TilePosition(UVec2);
+
+impl Deref for TilePosition {
+    type Target = UVec2;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(Clone, Default, Debug)]
 #[derive(Component)]
@@ -273,7 +294,7 @@ pub fn ladder_mouse_input_system(
     let Some(cursor_viewport_position) = window.cursor_position() else { return; };
     let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
 
-    for (tilemap_entity, tilemap, tilemap_transform, maybe_focused_ref) in tilemap_query.iter_mut() {
+    for (tilemap_entity, tilemap, tilemap_transform, maybe_hovered_ref) in tilemap_query.iter_mut() {
         let Some(tile_entity) = tilemap.get_tile_from_pixel_position(&tilemap_transform, cursor_world_position) else { return; };
         let Ok(mut _tile) = tile_query.get_mut(tile_entity) else {
             //TODO Fix
@@ -281,12 +302,12 @@ pub fn ladder_mouse_input_system(
             return;
         };
 
-        match maybe_focused_ref {
-            Some(mut focused_tile) => {
-                let focused_tile_entity = (*focused_tile).0;
-                if focused_tile_entity != tile_entity {
-                    commands.entity(focused_tile_entity).remove::<Hovered>();
-                    (*focused_tile).0 = tile_entity;
+        match maybe_hovered_ref {
+            Some(mut hovered_tile_ref) => {
+                let hovered_tile_entity = (*hovered_tile_ref).0;
+                if hovered_tile_entity != tile_entity {
+                    commands.entity(hovered_tile_entity).remove::<Hovered>();
+                    (*hovered_tile_ref).0 = tile_entity;
                     commands.entity(tile_entity).insert(Hovered);
                 }
             },
@@ -306,11 +327,11 @@ pub fn ladder_tile_highlight_system(
     }
 }
 pub fn ladder_tile_unhighlight_system(
-    mut removed_focus_entities: RemovedComponents<Hovered>,
+    mut removed_hovered_entities: RemovedComponents<Hovered>,
     mut tile_query: Query<&mut Stroke, Without<Hovered>>,
 ) {
-    for unfocused_entity in &mut removed_focus_entities {
-        let mut stroke = tile_query.get_mut(unfocused_entity).unwrap();
+    for unhovered_entity in &mut removed_hovered_entities {
+        let mut stroke = tile_query.get_mut(unhovered_entity).unwrap();
         *stroke = Stroke::new(Color::BLACK, 1.0);
     }
 }
@@ -326,7 +347,7 @@ pub fn ladder_tile_mouse_system(
 
         //TODO impl further mouse interface
         if mouse_buttons.just_pressed(MouseButton::Left) {
-            let is_coil_column = tile_position.0.x == tilemap.width()-1;
+            let is_coil_column = tile_position.x == tilemap.width()-1;
             let contact_or_coil = match is_coil_column {
                 false => ContactOrCoil::Contact,
                 true => ContactOrCoil::Coil,
@@ -345,7 +366,7 @@ pub fn ladder_tile_mouse_system(
                 Tile::Wire(_) => (false, true),
                 _ => (false, false),
             };
-            let is_coil_column = tile_position.0.y == tilemap.width()-1;
+            let is_coil_column = tile_position.y == tilemap.width()-1;
 
             *tile = match (is_none, is_wire, is_coil_column) {
                 (false, _    , _    ) => Tile::None,
