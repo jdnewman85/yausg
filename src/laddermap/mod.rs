@@ -102,6 +102,8 @@ pub struct HoveredRef(Entity);
 #[derive(Component)]
 pub struct Hovered;
 
+#[derive(Component)]
+pub struct TilePosition(UVec2);
 
 #[derive(Clone, Default, Debug)]
 #[derive(Component)]
@@ -313,34 +315,18 @@ pub fn ladder_tile_unhighlight_system(
     }
 }
 
-
-pub fn ladder_mouse_system(
-    window_query: Query<&Window>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+pub fn ladder_tile_mouse_system(
     mouse_buttons: Res<Input<MouseButton>>,
     mut scroll_events: EventReader<MouseWheel>,
-    tilemap_query: Query<(&LadderTileMap, &Transform)>,
-    mut tile_query: Query<&mut Tile>,
+    tilemap_query: Query<&LadderTileMap>,
+    mut tile_query: Query<(&mut Tile, &TilePosition, &Parent), With<Hovered>>,
 ) {
-    let window = window_query.single();
-    let (camera, camera_transform) = camera_query.single();
-
-    let Some(cursor_viewport_position) = window.cursor_position() else { return; };
-    let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
-
-    for (tilemap, tilemap_transform) in tilemap_query.iter() {
-        let Some(tile_entity) = tilemap.get_tile_from_pixel_position(&tilemap_transform, cursor_world_position) else { return; };
-        let Ok(mut tile) = tile_query.get_mut(tile_entity) else {
-            //TODO Fix
-            dbg!("FIX ME:", tile_entity);
-            return;
-        };
-
-        let (cursor_tile_x, _cursor_tile_y) = tilemap.pixel_to_tile_position(tilemap_transform, cursor_world_position).into();
+    for (mut tile, tile_position, parent) in tile_query.iter_mut() {
+        let tilemap = tilemap_query.get(parent.get()).unwrap();
 
         //TODO impl further mouse interface
         if mouse_buttons.just_pressed(MouseButton::Left) {
-            let is_coil_column = cursor_tile_x == tilemap.width()-1;
+            let is_coil_column = tile_position.0.x == tilemap.width()-1;
             let contact_or_coil = match is_coil_column {
                 false => ContactOrCoil::Contact,
                 true => ContactOrCoil::Coil,
@@ -359,7 +345,7 @@ pub fn ladder_mouse_system(
                 Tile::Wire(_) => (false, true),
                 _ => (false, false),
             };
-            let is_coil_column = cursor_tile_x == tilemap.width()-1;
+            let is_coil_column = tile_position.0.y == tilemap.width()-1;
 
             *tile = match (is_none, is_wire, is_coil_column) {
                 (false, _    , _    ) => Tile::None,
@@ -379,7 +365,6 @@ pub fn ladder_mouse_system(
                 Tile::Wire(ref mut wire) => wire.scroll(event.y),
             }
         }
-
     }
 }
 
@@ -424,17 +409,17 @@ fn spawn_tile(
     position: Vec2,
 ) -> Entity {
     //let tile_size = Vec2::splat(64.0);
-    let tile_size = Vec2::new(64.0, 64.0);
-    let (x, y) = (position.x, position.y);
+    let tile_size = Vec2::new(64.0, 64.0); //TODO Source from tilemap
     let label_text = tile.label_string();
 
     let mut tile_commands = tilemap_childbuilder.spawn((
-        Name::new(format!("Tile ({x},{y})")),
+        Name::new(format!("Tile ({},{})", position.x, position.y)),
         tile,
+        TilePosition(position.as_uvec2()),
         ShapeBundle {
             transform: Transform::from_translation(Vec3::new(
-                x*tile_size.x,
-                y*tile_size.y,
+                position.x*tile_size.x,
+                position.y*tile_size.y,
                 1.0,
             )).with_scale(Vec3::splat(1.0)),
             path: GeometryBuilder::build_as(&shapes::SvgPathShape {

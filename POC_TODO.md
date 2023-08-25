@@ -1,5 +1,10 @@
 # Prototype todo
 
+
+
+
+Should I add a TilePosition component for position relative in the tilemap?
+
 Need effort in keeping display/action systems separate, yet synced properly
 
 Entity is versioned

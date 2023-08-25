@@ -30,7 +30,6 @@ fn main() {
             //camera::god_mode_camera_system,
             utils::screenshot_on_spacebar,
             laddermap::ladder_init_system,
-            laddermap::ladder_mouse_system,
             laddermap::ladder_print_system,
             laddermap::ladder_tile_path_update_system,
             //laddermap::ladder_tile_label_update_system,
@@ -39,6 +38,7 @@ fn main() {
             laddermap::tile_label_reference_system,
             laddermap::ladder_tile_label_update_system,
 
+            laddermap::ladder_tile_mouse_system,
             laddermap::ladder_mouse_input_system,
             laddermap::ladder_tile_highlight_system,
             laddermap::ladder_tile_unhighlight_system,
