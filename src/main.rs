@@ -32,9 +32,7 @@ fn main() {
             laddermap::ladder_init_system,
             laddermap::ladder_print_system,
             laddermap::ladder_tile_path_update_system,
-            //laddermap::ladder_tile_label_update_system,
             laddermap::test_clear_tilemap_system,
-            //laddermap::ladder_mouse_highlight_system,
             laddermap::tile_label_reference_system,
             laddermap::ladder_tile_label_update_system,
 

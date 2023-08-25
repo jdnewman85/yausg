@@ -512,28 +512,3 @@ pub fn ladder_tile_label_update_system(
     }
 }
 
-//TODO Instead add a highlight component?
-pub fn ladder_mouse_highlight_system(
-    window_query: Query<&Window>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
-    tilemap_query: Query<(&LadderTileMap, &Transform)>,
-    mut stroke_query: Query<&mut Stroke, With<Tile>>,
-) {
-
-    let window = window_query.single();
-    let Some(cursor_viewport_position) = window.cursor_position() else { return; };
-
-    let (camera, camera_transform) = camera_query.single();
-    let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
-
-    for (tilemap, tilemap_transform) in tilemap_query.iter() {
-        let Some(tile_entity) = tilemap.get_tile_from_pixel_position(&tilemap_transform, cursor_world_position) else { return; };
-        let Ok(mut stroke) = stroke_query.get_mut(tile_entity) else {
-            //TODO Fix
-            dbg!("FIX ME!:", tile_entity);
-            return;
-        };
-
-        *stroke = Stroke::new(Color::GREEN, 2.0);
-    }
-}
