@@ -141,27 +141,25 @@ impl Tile {
 
 #[derive(Component)]
 pub struct LadderTileMap {
-    //TODO Rect, Vec2 or use tiles length?
-    width: usize,
-    height: usize,
+    size: UVec2,
     tiles: Vec<Vec<Entity>>,
+    tile_size: Vec2, //TODO Move?
 }
 
 pub type TileMapPositionalFunc = fn(
     tile: &mut Tile,
-    position: (usize, usize),
-    size: (usize, usize)
+    position: UVec2,
+    size: UVec2,
 );
 
 impl LadderTileMap {
     pub fn new(
-        width: usize,
-        height: usize,
+        size: UVec2,
     ) -> Self {
         LadderTileMap {
-            width,
-            height,
+            size, //TODO
             tiles: default(),
+            tile_size: Vec2::new(64.0, 64.0),
         }
     }
 
@@ -173,9 +171,52 @@ impl LadderTileMap {
         self.tiles.iter().enumerate().for_each(|(x, tile_col)| {
             tile_col.iter().enumerate().for_each(|(y, entity)| {
                 let mut tile = tile_query.get_mut(entity.clone()).unwrap();
-                func(&mut tile, (x, y), (self.width, self.height));
+                func(&mut tile, UVec2::new(x.try_into().unwrap(), y.try_into().unwrap()), self.size);
             });
         });
+    }
+
+    pub fn width(&self) -> u32 {
+        return self.size.x
+    }
+
+    pub fn height(&self) -> u32 {
+        return self.size.y
+    }
+
+    pub fn is_empty(&self) -> bool {
+        return self.tiles.is_empty()
+    }
+
+    pub fn pixel_size(&self) -> Vec2 {
+        self.size.as_vec2() * self.tile_size
+    }
+
+    pub fn rect(&self, position: Vec2) -> Rect {
+        Rect::from_corners(position, position + self.pixel_size())
+    }
+
+    pub fn pixel_to_tile_position(&self, transform: &Transform, pixel_coords: Vec2) -> UVec2 {
+        let position = transform.translation.truncate();
+        let delta = pixel_coords - position;
+        (delta/self.tile_size).as_uvec2()
+    }
+
+    pub fn contains_index(&self, index: UVec2) -> bool {
+        index.cmpge(self.size).any()
+    }
+
+    pub fn contains_pixel_position(&self, transform: &Transform, target_position: Vec2) -> bool {
+        let position = transform.translation.truncate();
+        self.rect(position).contains(target_position)
+    }
+
+    pub fn get_tile(&self, index: UVec2) -> Option<Entity> {
+        self.tiles.get(index.x as usize)?.get(index.y as usize).copied()
+    }
+
+    pub fn get_tile_from_pixel_position(&self, transform: &Transform, position: Vec2) -> Option<Entity> {
+        self.get_tile(self.pixel_to_tile_position(&transform, position))
     }
 }
 
@@ -239,23 +280,10 @@ pub fn ladder_mouse_input_system(
     let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
 
     for (tilemap_entity, tilemap, tilemap_transform, maybe_focused_ref) in tilemap_query.iter_mut() {
-        if tilemap.tiles.is_empty() { return; };
-        let tile_size = Vec2::splat(64.0);
-
-        let tilemap_position = tilemap_transform.translation.truncate();
-        let delta = cursor_world_position - tilemap_position;
-        let tilemap_pixel_size = Vec2::new(tilemap.width as f32, tilemap.height as f32) * tile_size;
-
-        let tilemap_rect = Rect::from_corners(tilemap_position, tilemap_position + tilemap_pixel_size);
-        if !tilemap_rect.contains(cursor_world_position) { continue; };
-
-        let cursor_tile_x = (delta.x / tile_size.x) as usize;
-        let cursor_tile_y = (delta.y / tile_size.y) as usize;
-
-        let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
+        let Some(tile_entity) = tilemap.get_tile_from_pixel_position(&tilemap_transform, cursor_world_position) else { return; };
         let Ok(mut _tile) = tile_query.get_mut(tile_entity) else {
             //TODO Fix
-            dbg!("FIX ME:", tile_entity, cursor_tile_x, cursor_tile_y);
+            dbg!("FIX ME:", tile_entity);
             return;
         };
 
@@ -309,29 +337,18 @@ pub fn ladder_mouse_system(
     let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
 
     for (tilemap, tilemap_transform) in tilemap_query.iter() {
-        if tilemap.tiles.is_empty() { return; };
-        let tile_size = Vec2::splat(64.0);
-
-        let tilemap_position = tilemap_transform.translation.truncate();
-        let delta = cursor_world_position - tilemap_position;
-        let tilemap_pixel_size = Vec2::new(tilemap.width as f32, tilemap.height as f32) * tile_size;
-
-        let tilemap_rect = Rect::from_corners(tilemap_position, tilemap_position + tilemap_pixel_size);
-        if !tilemap_rect.contains(cursor_world_position) { continue; };
-
-        let cursor_tile_x = (delta.x / tile_size.x) as usize;
-        let cursor_tile_y = (delta.y / tile_size.y) as usize;
-
-        let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
+        let Some(tile_entity) = tilemap.get_tile_from_pixel_position(&tilemap_transform, cursor_world_position) else { return; };
         let Ok(mut tile) = tile_query.get_mut(tile_entity) else {
             //TODO Fix
-            dbg!("FIX ME:", tile_entity, cursor_tile_x, cursor_tile_y);
+            dbg!("FIX ME:", tile_entity);
             return;
         };
 
+        let (cursor_tile_x, _cursor_tile_y) = tilemap.pixel_to_tile_position(tilemap_transform, cursor_world_position).into();
+
         //TODO impl further mouse interface
         if mouse_buttons.just_pressed(MouseButton::Left) {
-            let is_coil_column = cursor_tile_x == tilemap.width-1;
+            let is_coil_column = cursor_tile_x == tilemap.width()-1;
             let contact_or_coil = match is_coil_column {
                 false => ContactOrCoil::Contact,
                 true => ContactOrCoil::Coil,
@@ -350,7 +367,7 @@ pub fn ladder_mouse_system(
                 Tile::Wire(_) => (false, true),
                 _ => (false, false),
             };
-            let is_coil_column = cursor_tile_x == tilemap.width-1;
+            let is_coil_column = cursor_tile_x == tilemap.width()-1;
 
             *tile = match (is_none, is_wire, is_coil_column) {
                 (false, _    , _    ) => Tile::None,
@@ -384,7 +401,7 @@ pub fn test_clear_tilemap_system(
     for tilemap in tilemap_query.iter() {
         tilemap.apply_pos_fn(|tile, position, size| {
             *tile = match (&tile, position, size) {
-                (_, pos, size) if pos.0 == 0 || pos.0 == size.0-1 => Tile::Wire(Wire::Vert),
+                (_, pos, size) if pos.x == 0 || pos.x == size.x-1 => Tile::Wire(Wire::Vert),
                 (_, _, _) => Tile::None,
             }
         }, &mut tile_query);
@@ -399,8 +416,8 @@ pub fn ladder_init_system(
         commands.entity(tilemap_entity)
         .with_children(|tilemap_childbuilder| {
             tilemap.tiles =
-                (0..tilemap.width).map(|x| {
-                    (0..tilemap.height).map(|y| {
+                (0..tilemap.width()).map(|x| {
+                    (0..tilemap.height()).map(|y| {
                         spawn_tile(tilemap_childbuilder, Tile::default(), Vec2::new(x as f32, y as f32))
                     }).collect()
                 }).collect()
@@ -434,7 +451,7 @@ fn spawn_tile(
             }),
             ..default()
         },
-        Stroke::new(Color::BLACK, 2.0),
+        Stroke::new(Color::BLACK, 1.0),
     ));
 
     tile_commands.with_children(|tile_childbuilder| {
@@ -501,15 +518,8 @@ pub fn ladder_tile_label_update_system(
 pub fn ladder_mouse_highlight_system(
     window_query: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
-//    mouse_buttons: Res<Input<MouseButton>>,
-//    mut scroll_events: EventReader<MouseWheel>,
     tilemap_query: Query<(&LadderTileMap, &Transform)>,
     mut stroke_query: Query<&mut Stroke, With<Tile>>,
-/*
-    tilemap_query: Query<(&LadderTileMap, Option<&DebugCpuModule>)>,
-    mut tile_query: Query<(Entity, &Tile, &mut Path, Option<&Children>), Changed<Tile>>,
-    mut label_query: Query<(Entity, &mut Text), With<Parent>>,
-*/
 ) {
 
     let window = window_query.single();
@@ -519,24 +529,10 @@ pub fn ladder_mouse_highlight_system(
     let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
 
     for (tilemap, tilemap_transform) in tilemap_query.iter() {
-        // TODO: Into tilemap method
-        if tilemap.tiles.is_empty() { return; };
-        let tile_size = Vec2::splat(64.0);
-
-        let tilemap_pixel_size = Vec2::new(tilemap.width as f32, tilemap.height as f32) * tile_size;
-        let tilemap_position = tilemap_transform.translation.truncate();
-        let tilemap_rect = Rect::from_corners(tilemap_position, tilemap_position + tilemap_pixel_size);
-        if !tilemap_rect.contains(cursor_world_position) { continue; };
-
-        let delta = cursor_world_position - tilemap_transform.translation.truncate();
-        let cursor_tile_position = delta / tile_size;
-        let cursor_tile_x = cursor_tile_position.x as usize;
-        let cursor_tile_y = cursor_tile_position.y as usize;
-
-        let tile_entity = tilemap.tiles[cursor_tile_x][cursor_tile_y];
+        let Some(tile_entity) = tilemap.get_tile_from_pixel_position(&tilemap_transform, cursor_world_position) else { return; };
         let Ok(mut stroke) = stroke_query.get_mut(tile_entity) else {
             //TODO Fix
-            dbg!("FIX ME:", tile_entity, cursor_tile_x, cursor_tile_y);
+            dbg!("FIX ME!:", tile_entity);
             return;
         };
 

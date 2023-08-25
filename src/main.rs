@@ -148,7 +148,7 @@ fn setup(
             ..default()
         },
     ));
-    let tilemap = laddermap::LadderTileMap::new(8, 8);
+    let tilemap = laddermap::LadderTileMap::new(UVec2::new(8, 8));
     let tile_size = Vec2::splat(64.0);
     let tilemap_pixel_size = Vec2::new(8 as f32, 8 as f32) * tile_size; //TODO
     let tile_map_path = format!("M 0,0 H {} V {} H 0 Z", tilemap_pixel_size.x, tilemap_pixel_size.y);
