@@ -89,14 +89,6 @@ impl BoolElement {
     }
 }
 
-//TODO TEMP?
-//Keeps reference to the child that contains the label
-//ALlowing for easy/fast reference into the label child entity
-//Allows for easy addition/removal of the label in BoolElementLabel added/changed systems
-//Modification would still be on BoolElement
-//
-// *Maybe* Add the reference in added of the label, using the parent
-//
 #[derive(Component)]
 pub struct TileLabelRef(Entity);
 
@@ -105,10 +97,10 @@ pub struct TileLabel;
 
 
 #[derive(Component)]
-pub struct FocusedRef(Entity);
+pub struct HoveredRef(Entity);
 
 #[derive(Component)]
-pub struct Focused;
+pub struct Hovered;
 
 
 #[derive(Clone, Default, Debug)]
@@ -270,7 +262,7 @@ pub fn ladder_mouse_input_system(
     mut commands: Commands,
     window_query: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
-    mut tilemap_query: Query<(Entity, &LadderTileMap, &Transform, Option<&mut FocusedRef>)>,
+    mut tilemap_query: Query<(Entity, &LadderTileMap, &Transform, Option<&mut HoveredRef>)>,
     mut tile_query: Query<&mut Tile>,
 ) {
     let window = window_query.single();
@@ -291,29 +283,29 @@ pub fn ladder_mouse_input_system(
             Some(mut focused_tile) => {
                 let focused_tile_entity = (*focused_tile).0;
                 if focused_tile_entity != tile_entity {
-                    commands.entity(focused_tile_entity).remove::<Focused>();
+                    commands.entity(focused_tile_entity).remove::<Hovered>();
                     (*focused_tile).0 = tile_entity;
-                    commands.entity(tile_entity).insert(Focused);
+                    commands.entity(tile_entity).insert(Hovered);
                 }
             },
             None => {
-                commands.entity(tilemap_entity).insert(FocusedRef(tile_entity));
-                commands.entity(tile_entity).insert(Focused);
+                commands.entity(tilemap_entity).insert(HoveredRef(tile_entity));
+                commands.entity(tile_entity).insert(Hovered);
             },
         }
     }
 }
 
 pub fn ladder_tile_highlight_system(
-    mut tile_query: Query<&mut Stroke, Added<Focused>>,
+    mut tile_query: Query<&mut Stroke, Added<Hovered>>,
 ) {
     for mut stroke in tile_query.iter_mut() {
         *stroke = Stroke::new(Color::GREEN, 2.0);
     }
 }
 pub fn ladder_tile_unhighlight_system(
-    mut removed_focus_entities: RemovedComponents<Focused>,
-    mut tile_query: Query<&mut Stroke, Without<Focused>>,
+    mut removed_focus_entities: RemovedComponents<Hovered>,
+    mut tile_query: Query<&mut Stroke, Without<Hovered>>,
 ) {
     for unfocused_entity in &mut removed_focus_entities {
         let mut stroke = tile_query.get_mut(unfocused_entity).unwrap();
