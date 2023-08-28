@@ -117,6 +117,13 @@ impl Deref for HoveredRef {
 }
 
 #[derive(Component)]
+pub struct TileMapCursorRef(Entity);
+
+#[derive(Component)]
+pub struct TileMapCursor;
+
+
+#[derive(Component)]
 pub struct TilePosition(UVec2);
 
 impl Deref for TilePosition {
@@ -125,6 +132,12 @@ impl Deref for TilePosition {
         &self.0
     }
 }
+
+//TODO
+const Z_ORDER_SPRITE: f32 = 1.0;
+
+//TODO
+const TILE_SIZE: Vec2 = Vec2::new(64.0, 64.0);
 
 #[derive(Clone, Default, Debug)]
 #[derive(Component)]
@@ -157,8 +170,7 @@ impl Tile {
 #[derive(Component)]
 pub struct LadderTileMap {
     size: UVec2,
-    tiles: Vec<Vec<Entity>>,
-    tile_size: Vec2, //TODO Move?
+    tiles: Vec<Vec<Entity>>, //TODO Opt? Single vec? For grid, but maybe not for later rung based
 }
 
 pub type TileMapPositionalFunc = fn(
@@ -174,7 +186,6 @@ impl LadderTileMap {
         LadderTileMap {
             size, //TODO
             tiles: default(),
-            tile_size: Vec2::new(64.0, 64.0),
         }
     }
 
@@ -204,7 +215,7 @@ impl LadderTileMap {
     }
 
     pub fn pixel_size(&self) -> Vec2 {
-        self.size.as_vec2() * self.tile_size
+        self.size.as_vec2() * TILE_SIZE
     }
 
     pub fn rect(&self, position: Vec2) -> Rect {
@@ -214,7 +225,7 @@ impl LadderTileMap {
     pub fn pixel_to_tile_position(&self, transform: &Transform, pixel_coords: Vec2) -> UVec2 {
         let position = transform.translation.truncate();
         let delta = pixel_coords - position;
-        (delta/self.tile_size).as_uvec2()
+        (delta/TILE_SIZE).as_uvec2()
     }
 
     pub fn contains_index(&self, index: UVec2) -> bool {
@@ -303,14 +314,13 @@ pub fn ladder_mouse_input_system(
         };
 
         match maybe_hovered_ref {
-            Some(mut hovered_tile_ref) => {
-                let hovered_tile_entity = (*hovered_tile_ref).0;
-                if hovered_tile_entity != tile_entity {
-                    commands.entity(hovered_tile_entity).remove::<Hovered>();
-                    (*hovered_tile_ref).0 = tile_entity;
-                    commands.entity(tile_entity).insert(Hovered);
-                }
+            Some(mut hovered_tile_ref) if (*hovered_tile_ref).0 != tile_entity => {
+                commands.entity((*hovered_tile_ref).0).remove::<Hovered>();
+                (*hovered_tile_ref).0 = tile_entity;
+                commands.entity(tile_entity).insert(Hovered);
             },
+            Some(hovered_tile_ref) if (*hovered_tile_ref).0 == tile_entity => (), //Skip
+            Some(_) => unreachable!(),
             None => {
                 commands.entity(tilemap_entity).insert(HoveredRef(tile_entity));
                 commands.entity(tile_entity).insert(Hovered);
@@ -429,8 +439,6 @@ fn spawn_tile(
     tile: Tile,
     position: Vec2,
 ) -> Entity {
-    //let tile_size = Vec2::splat(64.0);
-    let tile_size = Vec2::new(64.0, 64.0); //TODO Source from tilemap
     let label_text = tile.label_string();
 
     let mut tile_commands = tilemap_childbuilder.spawn((
@@ -438,11 +446,9 @@ fn spawn_tile(
         tile,
         TilePosition(position.as_uvec2()),
         ShapeBundle {
-            transform: Transform::from_translation(Vec3::new(
-                position.x*tile_size.x,
-                position.y*tile_size.y,
-                1.0,
-            )).with_scale(Vec3::splat(1.0)),
+            transform: Transform::from_translation(
+                (position*TILE_SIZE).extend(Z_ORDER_SPRITE)
+            ),
             path: GeometryBuilder::build_as(&shapes::SvgPathShape {
                 svg_path_string: Tile::default().path_string(),
                 svg_doc_size_in_px: Vec2::ZERO, //Vec2::new(64.0, 64.0),
@@ -512,3 +518,22 @@ pub fn ladder_tile_label_update_system(
     }
 }
 
+pub fn ladder_tile_label_update_system_sans_ref(
+    mut tile_query: Query<(&Tile, &Children), Changed<Tile>>,
+    mut label_query: Query<&mut Text, With<TileLabel>>,
+) {
+    for (changed_tile, children) in tile_query.iter_mut() {
+        //Can't use for loop with iter_many_mut
+        //for mut label_text in label_query.iter_many_mut(children) {
+        let mut iter = label_query.iter_many_mut(children);
+        let mut label_text = iter.fetch_next().unwrap();
+        *label_text = Text::from_section(
+            changed_tile.label_string(),
+            TextStyle {
+                font_size: 24.0,
+                color: Color::BLACK,
+                ..default()
+            }
+        ).with_alignment(TextAlignment::Center);
+    }
+}
