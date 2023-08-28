@@ -1,5 +1,24 @@
 # Prototype todo
 
+
+Should I be prefering bundles as return for spawn functions?
+
+Cursor - display mostly?
+  - [X] Add component types
+  - [X] Add spawn function
+  - [ ] Use in current mouse input system?
+    - [X] Tried
+    - [ ] Bad idea, move to own system
+        ... Could I just use the TilePosition component I'm calcing and adding to the TM?
+        Maybe change TileCursorPosition to hold that value, and use changes in it to move the cursor
+  - [ ] Create if tile_cursor is on tilemap, and doesn't currently exist
+    - [ ] parent to tilemap for now
+    - [ ] create reference, or ref creation system
+  - [ ] If does exist, move
+  - [ ] If off tilemap, and does exist
+    - [ ] remove cursor
+    In-front layer and behind layer?
+
 - Better hover indicator
 - Focus
   - on click
@@ -10,10 +29,10 @@
     - Or maybe leave it as invalid till fixed?
 
 
-
 NamedRefMap?
   Component that has hashmap of string->entity references?
   Not sure if this, individual refs, or query of children with the marker components
+  If too broad, adds too many queries to the system
 
 
 Always ask, should it be a component?

@@ -37,7 +37,10 @@ fn main() {
             laddermap::ladder_tile_label_update_system,
 
             laddermap::ladder_tile_mouse_system,
-            laddermap::ladder_mouse_input_system,
+            laddermap::tilemap_mouse_position_system,
+            laddermap::tilemap_cursor_system,
+            laddermap::tilemap_cursor_removal_system,
+            laddermap::tile_highlight_system,
             laddermap::ladder_tile_highlight_system,
             laddermap::ladder_tile_unhighlight_system,
         ))
@@ -146,9 +149,11 @@ fn setup(
             ..default()
         },
     ));
+
+
+    //TODO Move to tilemap init function
     let tilemap = laddermap::LadderTileMap::new(UVec2::new(8, 8));
-    let tile_size = Vec2::splat(64.0);
-    let tilemap_pixel_size = Vec2::new(8 as f32, 8 as f32) * tile_size; //TODO
+    let tilemap_pixel_size = tilemap.pixel_size();
     let tile_map_path = format!("M 0,0 H {} V {} H 0 Z", tilemap_pixel_size.x, tilemap_pixel_size.y);
     commands.spawn((
         tilemap,

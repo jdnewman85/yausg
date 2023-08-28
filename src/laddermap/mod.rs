@@ -41,6 +41,7 @@ impl Wire {
             Self::_Length => unreachable!(),
         }.into()
     }
+    //TODO TEMP
     fn scroll(&mut self, x: f32) {
         let len = Self::_Length as i32;
         let change = x.round() as i32;
@@ -80,6 +81,7 @@ pub struct BoolElement {
 }
 
 impl BoolElement {
+    //TODO Trait?
     fn path_string(&self) -> String {
         match (self.contact_or_coil, self.polarity) {
             (ContactOrCoil::Contact, Polarity::NO) =>"M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125 M 0,0.5 H 0.375",
@@ -122,6 +124,16 @@ pub struct TileMapCursorRef(Entity);
 #[derive(Component)]
 pub struct TileMapCursor;
 
+#[derive(Component)]
+pub struct MouseTilePosition(UVec2);
+
+impl Deref for TileMapCursorRef {
+    type Target = Entity;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 
 #[derive(Component)]
 pub struct TilePosition(UVec2);
@@ -135,6 +147,7 @@ impl Deref for TilePosition {
 
 //TODO
 const Z_ORDER_SPRITE: f32 = 1.0;
+const Z_ORDER_CURSOR: f32 = 0.1;
 
 //TODO
 const TILE_SIZE: Vec2 = Vec2::new(64.0, 64.0);
@@ -222,10 +235,13 @@ impl LadderTileMap {
         Rect::from_corners(position, position + self.pixel_size())
     }
 
-    pub fn pixel_to_tile_position(&self, transform: &Transform, pixel_coords: Vec2) -> UVec2 {
+    //TODO BUG - negative coordinates
+    pub fn pixel_to_tile_position(&self, transform: &Transform, pixel_coords: Vec2) -> Option<UVec2> {
+        if !self.contains_pixel_position(transform, pixel_coords) { return None }
         let position = transform.translation.truncate();
         let delta = pixel_coords - position;
-        (delta/TILE_SIZE).as_uvec2()
+        let tile_position = delta/TILE_SIZE;
+        Some(tile_position.as_uvec2())
     }
 
     pub fn contains_index(&self, index: UVec2) -> bool {
@@ -242,7 +258,7 @@ impl LadderTileMap {
     }
 
     pub fn get_tile_from_pixel_position(&self, transform: &Transform, position: Vec2) -> Option<Entity> {
-        self.get_tile(self.pixel_to_tile_position(&transform, position))
+        self.get_tile(self.pixel_to_tile_position(&transform, position)?)
     }
 }
 
@@ -292,12 +308,15 @@ pub fn ladder_print_system(
     }
 }
 
-pub fn ladder_mouse_input_system(
+pub fn tilemap_mouse_position_system(
     mut commands: Commands,
     window_query: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
-    mut tilemap_query: Query<(Entity, &LadderTileMap, &Transform, Option<&mut HoveredRef>)>,
-    mut tile_query: Query<&mut Tile>,
+    mut tilemap_query: Query<(
+        Entity, &LadderTileMap, &Transform,
+        Option<&mut MouseTilePosition>,
+    ), Without<TileMapCursor>
+    >,
 ) {
     let window = window_query.single();
     let (camera, camera_transform) = camera_query.single();
@@ -305,13 +324,76 @@ pub fn ladder_mouse_input_system(
     let Some(cursor_viewport_position) = window.cursor_position() else { return; };
     let Some(cursor_world_position) = camera.viewport_to_world_2d(camera_transform, cursor_viewport_position) else { return; };
 
-    for (tilemap_entity, tilemap, tilemap_transform, maybe_hovered_ref) in tilemap_query.iter_mut() {
-        let Some(tile_entity) = tilemap.get_tile_from_pixel_position(&tilemap_transform, cursor_world_position) else { return; };
-        let Ok(mut _tile) = tile_query.get_mut(tile_entity) else {
-            //TODO Fix
-            dbg!("FIX ME:", tile_entity);
+    for (tilemap_entity, tilemap, tilemap_transform, maybe_mouse_tile_position) in tilemap_query.iter_mut() {
+        //Update MouseTilePosition
+        let maybe_new_tile_position = tilemap.pixel_to_tile_position(tilemap_transform, cursor_world_position);
+        match (maybe_mouse_tile_position, maybe_new_tile_position) {
+            (None, None) => (),
+            (None, Some(tile_position)) => {
+                commands.entity(tilemap_entity)
+                .insert(MouseTilePosition(tile_position));
+            },
+            (Some(_), None) => {
+                commands.entity(tilemap_entity)
+                .remove::<MouseTilePosition>();
+            },
+            (Some(mut current_tile_position), Some(new_tile_position)) => {
+                *current_tile_position = MouseTilePosition(new_tile_position); //TODO Opt mutate interior
+            },
+        };
+    }
+}
+
+pub fn tilemap_cursor_system(
+    mut commands: Commands,
+    mut tilemap_query: Query<
+        (Entity, &MouseTilePosition, Option<&mut TileMapCursorRef>),
+        Changed<MouseTilePosition>
+    >,
+    mut cursor_query: Query<(&mut Transform, &mut TilePosition), With<TileMapCursor>>,
+) {
+    for (tilemap_entity, mouse_tile_position, maybe_cursor_tile_ref) in tilemap_query.iter_mut() {
+        match maybe_cursor_tile_ref {
+            None => {
+                let mut tilemap_commands = commands.entity(tilemap_entity);
+                let mut maybe_cursor = None;
+                tilemap_commands.with_children(|tilemap_childbuilder| {
+                    maybe_cursor = Some(spawn_tile_cursor(tilemap_childbuilder, mouse_tile_position.0))
+                });
+                tilemap_commands.insert(
+                    TileMapCursorRef(maybe_cursor.unwrap())
+                );
+            },
+            Some(cursor_tile_ref) => {
+                let (mut cursor_transform, mut cursor_tile_position) = cursor_query.get_mut(**cursor_tile_ref).unwrap();
+                cursor_transform.translation = (mouse_tile_position.0.as_vec2()*TILE_SIZE).extend(Z_ORDER_CURSOR);
+                cursor_tile_position.0 = mouse_tile_position.0;
+            },
+        };
+    }
+}
+pub fn tilemap_cursor_removal_system(
+    mut commands: Commands,
+    mut removed_entities: RemovedComponents<MouseTilePosition>,
+    cursor_ref_query: Query<&TileMapCursorRef, Without<MouseTilePosition>>
+) {
+    for tilemap_entity in &mut removed_entities {
+        let Ok(tilemap_cursor_ref) = cursor_ref_query.get(tilemap_entity) else {
+            dbg!("TODO FIX ME: MouseTilePosition removed, but no TileMapCursorRef in cursor query");
             return;
         };
+        let cursor_entity = **tilemap_cursor_ref;
+        commands.entity(tilemap_entity).remove::<TileMapCursorRef>();
+        commands.entity(cursor_entity).despawn_recursive();
+    }
+}
+
+pub fn tile_highlight_system(
+    mut commands: Commands,
+    mut tilemap_query: Query<(Entity, &LadderTileMap, &MouseTilePosition, Option<&mut HoveredRef>), Changed<MouseTilePosition>>,
+) {
+    for (tilemap_entity, tilemap, mouse_tile_position, maybe_hovered_ref) in tilemap_query.iter_mut() {
+        let tile_entity = tilemap.get_tile(mouse_tile_position.0).unwrap();
 
         match maybe_hovered_ref {
             Some(mut hovered_tile_ref) if (*hovered_tile_ref).0 != tile_entity => {
@@ -327,6 +409,29 @@ pub fn ladder_mouse_input_system(
             },
         }
     }
+}
+
+fn spawn_tile_cursor(
+    tilemap_childbuilder: &mut ChildBuilder,
+    tile_position: UVec2,
+) -> Entity {
+    let cursor_path = format!("M 0,0 H {} V {} H 0 Z", TILE_SIZE.x, TILE_SIZE.y);
+    tilemap_childbuilder.spawn((
+        TileMapCursor,
+        TilePosition(tile_position),
+        ShapeBundle {
+            transform: Transform::from_translation(
+                (tile_position.as_vec2()*TILE_SIZE).extend(Z_ORDER_CURSOR)
+            ),
+            path: GeometryBuilder::build_as(&shapes::SvgPathShape {
+                svg_path_string: cursor_path,
+                svg_doc_size_in_px: Vec2::Y * (TILE_SIZE.y * 2.0), //TODO HACK Invert Y
+            }),
+            ..default()
+        },
+        Stroke::new(Color::BLACK, 2.0),
+        Fill::color(Color::rgb(0.7, 0.7, 0.9)),
+    )).id()
 }
 
 pub fn ladder_tile_highlight_system(
@@ -389,7 +494,6 @@ pub fn ladder_tile_mouse_system(
         for event in scroll_events.iter() {
             //TODO handle each event.unit differently
             //TODO handle scroll values
-
             match *tile {
                 Tile::None => { },
                 Tile::BoolElement(ref mut bool_element) => bool_element.polarity.invert(),
