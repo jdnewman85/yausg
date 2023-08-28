@@ -1,50 +1,56 @@
 # Prototype todo
 
+- Better hover indicator
+- Focus
+  - on click
+- Show extra controls while focused?
+- Set contact type with keys while focused
+- Set address by typing
+  - Needs modal?
+    - Or maybe leave it as invalid till fixed?
 
 
 
-Should I add a TilePosition component for position relative in the tilemap?
+NamedRefMap?
+  Component that has hashmap of string->entity references?
+  Not sure if this, individual refs, or query of children with the marker components
+
+
+Always ask, should it be a component?
 
 Need effort in keeping display/action systems separate, yet synced properly
 
-Entity is versioned
-  So let's store child entity references as needed
-  Much less overhead compared to parent->child
-  May still be useful to use the parent->child relationship for transform/offset capability
-  Maybe children that are simply groups?
-    Would provide a group offset when useful
-    With no offset, provides clean children grouping
-      May be useful for things like collection of collision boxes
+Current Tilemap mouse editing functionality should be based on tilemap+some other markers
+  Want differing systems for a ladder editor view and a toolbar, which both may use tilemap
 
-Components for easy querying of child stuff, such as labels?
-  Label component would make use of the text component
-  Queries would be for something with both label, text, and parent for needed data
+Decouple Tilemap graphical/positional data components from the data/logic
+  So that we can have tilemaps that aren't for display at all
+  Need a way to convert, or attach
+    Maybe a function/system that generates and adds position/graphical info,
+      and another to remove?
+    OR - Conversion/Serialization?
 
-Each tilemap should have it's own focus, highlight, etc?
-  If each keep their state, then simultaneous editing might be easier
-  Matches with components better?
-
-Should focus, and highlight be
-  Component based
-  Stored in tilemap/whatever, and calculated on change?
-  Both somehow?
-
-  If a component
-    System can query these specifically
-      For styling, and unstyling
+Vec<Vec<Entity>> -> Img<Tile>?
+  https://github.com/kornelski/imgref
+  Might be useful for grid, probably less so with a more dynamic rung based approach
 
 
-- [ ] Add TileLabel component
+
+- [X] Define InputModule Component
+  - [X] OutputModule Component
+  - [X] PlcModule Component with static function to set outputs to inputs
+  - [X] add a bit of logic for testing
+
+- [X] Add TileLabel component
   Used with Text component, and translation
-  - [ ] Use this to make queries easier
-
-
+  - [X] Use this to make queries easier
 
 - [ ] TileStyleSystem
     Updates tile graphics in response to system state
     Runs after other systems
-  - [ ] Mouseover Highlight
-      Background color change
+  - [o] Mouseover Highlight
+      - [ ] Background color change
+      - [X] Style Color change
   - [ ] Focus
       Box around?
   - [ ] Text entry?
@@ -52,11 +58,11 @@ Should focus, and highlight be
   - [ ] Based on IO state
       Color of stroke
 
-- [ ] Add Parent/Child components to tilemap/tile queryseseieses
-- [ ] Add a temporary mapping
+- [X] Add Parent/Child components to tilemap/tile queryseseieses
+- [ ] Add a temporary address mapping hash thing
 - [ ] When building a tile, use parent tilemap for
   - [ ] styling data
-  - [ ] checking mapping
+  - [ ] checking address mappings
 - [ ] If mapping exists,
   - [ ] Check state of digital value
   - [ ]   style according to state
@@ -71,10 +77,6 @@ Try to generalize ladder display
     To/from graph
   Tile based editor
   Node based editor
-
-Probably need my own label type and maybe sub types as components
-  This would make addressing easier without having to crawl children
-  Or alteast easier to select the correct child entity
 
 
 Change to using graph structure for rung/ladder?
@@ -119,12 +121,6 @@ PlcModule Component
   OutputModules
   Program
   State
-
-- [X] Define InputModule Component
-  - [X] OutputModule Component
-  - [X] PlcModule Component with static function to set outputs to inputs
-  - [X] add a bit of logic for testing
-
 
 Choose address assignments for IO modules?
   Might be messy for sensor/actuators with low IO numbers?
@@ -265,10 +261,60 @@ Selection Ideas
 
 
 
+# Hacks
+## iter_many_mut
+//HACK, iter_many_mut doesn't impl Iterator with mut, but instead FusedIter
+//  Requiring fetch_next() when needing mut access, instead of next(), which
+//  has a lifetime signature that isn't compatible with safety guarantees
+//  See: https://github.com/bevyengine/bevy/blob/main/crates/bevy_ecs/src/query/iter.rs#L387
+//
+//  for mut label_text in label_query.iter_many_mut(children) {
+let mut iter = label_query.iter_many_mut(children);
+while let Some(mut label_text) = iter.fetch_next() {
 
 
 
 # OLD
+Probably need my own label type and maybe sub types as components
+  *yep, did*
+  This would make addressing easier without having to crawl children
+  Or alteast easier to select the correct child entity
+
+Should I add a TilePosition component for position relative in the tilemap?
+  *did*
+
+Entity is versioned
+  So let's store child entity references as needed
+  *did*
+  Much less overhead compared to parent->child
+  May still be useful to use the parent->child relationship for transform/offset capability
+  Maybe children that are simply groups?
+    *haven't yet, still might*
+    Would provide a group offset when useful
+    With no offset, provides clean children grouping
+      May be useful for things like collection of collision boxes
+
+Components for easy querying of child stuff, such as labels?
+  *yes*
+  Label component would make use of the text component
+  Queries would be for something with both label, text, and parent for needed data
+
+Each tilemap should have it's own focus, highlight, etc?
+  *NO! These are common components on the same entity!*
+  If each keep their state, then simultaneous editing might be easier
+  Matches with components better?
+
+Should focus, and highlight be
+  Component based
+    *yes, this*
+  Stored in tilemap/whatever, and calculated on change?
+  Both somehow?
+
+  If a component
+    System can query these specifically
+      For styling, and unstyling
+
+
 ## Editor - Tile editor
   Manages grid of contacts, coils, and connections
   Hide/Show in some way
