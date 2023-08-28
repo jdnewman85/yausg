@@ -274,7 +274,7 @@ pub fn ladder_tile_path_update_system(
         });
         *path = bevy_prototype_lyon::entity::Path(
             path.0.clone().transformed(
-                &tess::geom::Transform::<f32>::scale(64.0, -64.0)
+                &tess::geom::Transform::<f32>::scale(TILE_SIZE.x, -TILE_SIZE.y) //TODO Fix invert y
             )
         );
     }
@@ -555,7 +555,7 @@ fn spawn_tile(
             ),
             path: GeometryBuilder::build_as(&shapes::SvgPathShape {
                 svg_path_string: Tile::default().path_string(),
-                svg_doc_size_in_px: Vec2::ZERO, //Vec2::new(64.0, 64.0),
+                svg_doc_size_in_px: Vec2::ZERO, //TODO size
             }),
             ..default()
         },
