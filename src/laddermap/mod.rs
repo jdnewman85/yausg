@@ -84,7 +84,7 @@ impl BoolElement {
     //TODO Trait?
     fn path_string(&self) -> String {
         match (self.contact_or_coil, self.polarity) {
-            (ContactOrCoil::Contact, Polarity::NO) =>"M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125 M 0,0.5 H 0.375",
+            (ContactOrCoil::Contact, Polarity::NO) => "M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125 M 0,0.5 H 0.375",
             (ContactOrCoil::Contact, Polarity::NC) => "M 0.6875,0.25L 0.3125,0.75 M 0.375,0.5 H 0 M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125",
             (ContactOrCoil::Coil, Polarity::NO) => "M 0.75,0.5 H 1.0 M 0.25,0.5 H 0 M 0.5625,0.75 A 0.26046875,0.26046875 0 0 1 0.5625,0.25M 0.4375,0.25A 0.26046875,0.26046875 0 0 1 0.4375,0.75",
             (ContactOrCoil::Coil, Polarity::NC) => "M 0.6875,0.25L 0.3125,0.75 M 0.5625,0.75 A 0.26046875,0.26046875 0 0 1 0.5625,0.25M 0.4375,0.25A 0.26046875,0.26046875 0 0 1 0.4375,0.75 M 1.0,0.5 H 0.75 M 0,0.5 H 0.25",
@@ -371,13 +371,10 @@ pub fn tilemap_cursor_system(
     for (tilemap_entity, mouse_tile_position, maybe_cursor_tile_ref) in tilemap_query.iter_mut() {
         match maybe_cursor_tile_ref {
             None => {
-                let mut tilemap_commands = commands.entity(tilemap_entity);
-                let mut maybe_cursor = None;
-                tilemap_commands.with_children(|tilemap_childbuilder| {
-                    maybe_cursor = Some(spawn_tile_cursor(tilemap_childbuilder, mouse_tile_position.0))
-                });
-                tilemap_commands.insert(
-                    TileMapCursorRef(maybe_cursor.unwrap())
+                let cursor_entity = Some(spawn_tile_cursor(&mut commands, mouse_tile_position.0)).unwrap();
+                commands.entity(tilemap_entity)
+                    .push_children(&vec![cursor_entity])
+                    .insert(TileMapCursorRef(cursor_entity)
                 );
             },
             Some(cursor_tile_ref) => {
@@ -428,11 +425,11 @@ pub fn tile_highlight_system(
 }
 
 fn spawn_tile_cursor(
-    tilemap_childbuilder: &mut ChildBuilder,
+    commands: &mut Commands,
     tile_position: UVec2,
 ) -> Entity {
     let cursor_path = format!("M 0,0 H {} V {} H 0 Z", TILE_SIZE.x, TILE_SIZE.y);
-    tilemap_childbuilder.spawn((
+    commands.spawn((
         TileMapCursor,
         TilePosition(tile_position),
         ShapeBundle {
@@ -592,27 +589,27 @@ pub fn ladder_init_system(
     mut tilemap_query: Query<(&mut LadderTileMap, Entity), Added<LadderTileMap>>,
 ) {
     for (mut tilemap, tilemap_entity) in tilemap_query.iter_mut() {
-        commands.entity(tilemap_entity)
-        .with_children(|tilemap_childbuilder| {
-            tilemap.tiles =
-                (0..tilemap.width()).map(|x| {
-                    (0..tilemap.height()).map(|y| {
-                        spawn_tile(tilemap_childbuilder, Tile::default(), Vec2::new(x as f32, y as f32))
-                    }).collect()
+        tilemap.tiles =
+            (0..tilemap.width()).map(|x| {
+                (0..tilemap.height()).map(|y| {
+                    let tile_entity = spawn_tile(&mut commands, Tile::default(), Vec2::new(x as f32, y as f32));
+                    commands.entity(tilemap_entity)
+                        .push_children(&vec![tile_entity]);
+                    tile_entity
                 }).collect()
-            ;
-        });
+            }).collect()
+        ;
     }
 }
 
 fn spawn_tile(
-    tilemap_childbuilder: &mut ChildBuilder,
+    mut commands: &mut Commands,
     tile: Tile,
     position: Vec2,
 ) -> Entity {
     let label_text = tile.label_string();
 
-    let mut tile_commands = tilemap_childbuilder.spawn((
+    let tile_entity = commands.spawn((
         Name::new(format!("Tile: {}", position)),
         tile,
         TilePosition(position.as_uvec2()),
@@ -627,16 +624,18 @@ fn spawn_tile(
             ..default()
         },
         Stroke::new(Color::BLACK, 1.0),
-    ));
+    )).id();
 
-    tile_commands.with_children(|tile_childbuilder| {
-        spawn_tilelabel(tile_childbuilder, label_text);
-    });
-
-    tile_commands.id()
+    let tile_label_entity = spawn_tilelabel(&mut commands, label_text);
+    commands.entity(tile_entity)
+    .push_children(&vec![tile_label_entity])
+    .id()
 }
 
-fn spawn_tilelabel(tile_childbuilder: &mut ChildBuilder, label_text: String) {
+fn spawn_tilelabel(
+    commands: &mut Commands,
+    label_text: String
+) -> Entity {
     //Label
     let style = TextStyle {
         font_size: 24.0,
@@ -645,9 +644,9 @@ fn spawn_tilelabel(tile_childbuilder: &mut ChildBuilder, label_text: String) {
     };
 
     let new_label_text = Text::from_section(label_text, style)
-        .with_alignment(TextAlignment::Center);
+    .with_alignment(TextAlignment::Center);
 
-    tile_childbuilder.spawn((
+    commands.spawn((
         TileLabel{},
         Text2dBundle {
             text: new_label_text.clone(),
@@ -655,7 +654,8 @@ fn spawn_tilelabel(tile_childbuilder: &mut ChildBuilder, label_text: String) {
             transform: Transform::from_xyz(32.0, 64.0, 1.0), //TODO Label size
             ..default()
         },
-    ));
+    ))
+    .id()
 }
 
 //Adds references to TileLabel child as TileLabelRef component on parent
