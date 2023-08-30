@@ -98,12 +98,28 @@ pub struct TileLabelRef(Entity);
 #[derive(Component)]
 pub struct TileLabel;
 
+//TODO Are these that useful?
+//TODO Can it be a derive marco?
 impl Deref for TileLabelRef {
     type Target = Entity;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
+
+#[derive(Component)]
+pub struct FocusedRef(Entity);
+
+#[derive(Component)]
+pub struct Focused;
+
+impl Deref for FocusedRef {
+    type Target = Entity;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 
 #[derive(Component)]
 pub struct HoveredRef(Entity);
@@ -451,7 +467,58 @@ pub fn ladder_tile_unhighlight_system(
     }
 }
 
+pub fn ladder_tile_focus_highlight_system(
+    mut tile_query: Query<&mut Stroke, Added<Focused>>,
+) {
+    for mut stroke in tile_query.iter_mut() {
+        *stroke = Stroke::new(Color::GREEN, 6.0);
+    }
+}
+pub fn ladder_tile_focus_unhighlight_system(
+    mut removed_focused_entities: RemovedComponents<Focused>,
+    mut tile_query: Query<&mut Stroke, Without<Focused>>,
+) {
+    for unfocused_entity in &mut removed_focused_entities {
+        let Ok(mut stroke) = tile_query.get_mut(unfocused_entity) else {
+            dbg!("TODO FIX ME: abcd");
+            return;
+        };
+        *stroke = Stroke::new(Color::BLACK, 1.0);
+    }
+}
+
 pub fn ladder_tile_mouse_system(
+    mut commands: Commands,
+    mouse_buttons: Res<Input<MouseButton>>,
+    tilemap_query: Query<Option<&FocusedRef>>,
+    mut tile_query: Query<(Entity, &Parent), With<Hovered>>,
+) {
+    for (tile_entity, parent) in tile_query.iter_mut() {
+        let maybe_focused_ref = tilemap_query.get(parent.get()).unwrap();
+
+        //Select
+        //TODO Remove any already selected
+        if mouse_buttons.just_pressed(MouseButton::Left) {
+            //Unselect previous
+            if let Some(focused_ref) = maybe_focused_ref {
+                commands.entity(focused_ref.0).remove::<Focused>();
+            }
+            //Focus hovered tile
+            commands.entity(tile_entity).insert(Focused);
+            //Set FocusRef in tilemap
+            commands.entity(parent.get()).insert(FocusedRef(tile_entity));
+        }
+
+        if mouse_buttons.just_pressed(MouseButton::Right) {
+            //Unselect previous
+            if let Some(focused_ref) = maybe_focused_ref {
+                commands.entity(focused_ref.0).remove::<Focused>();
+            }
+        }
+    }
+}
+
+pub fn ladder_tile_mouse_system_old(
     mouse_buttons: Res<Input<MouseButton>>,
     mut scroll_events: EventReader<MouseWheel>,
     tilemap_query: Query<&LadderTileMap>,
@@ -546,7 +613,7 @@ fn spawn_tile(
     let label_text = tile.label_string();
 
     let mut tile_commands = tilemap_childbuilder.spawn((
-        Name::new(format!("Tile ({},{})", position.x, position.y)),
+        Name::new(format!("Tile: {}", position)),
         tile,
         TilePosition(position.as_uvec2()),
         ShapeBundle {
@@ -585,7 +652,7 @@ fn spawn_tilelabel(tile_childbuilder: &mut ChildBuilder, label_text: String) {
         Text2dBundle {
             text: new_label_text.clone(),
             text_anchor: bevy::sprite::Anchor::Center,
-            transform: Transform::from_xyz(32.0, 64.0, 1.0),
+            transform: Transform::from_xyz(32.0, 64.0, 1.0), //TODO Label size
             ..default()
         },
     ));

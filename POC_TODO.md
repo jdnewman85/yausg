@@ -1,7 +1,20 @@
 # Prototype todo
 
 
+Think I should move away from childbuilder
+
+BUGS
+  Focus is removed on cursor move
+  Highlight isn't removed on leaving tilemap
+
+Probably want the ability to have a below, above and local component for highlight/focus
+
 Should I be prefering bundles as return for spawn functions?
+
+
+
+One system should be responsible for setting things like style updates for tiles
+  Multiple cause issues, fe: stroke/fill
 
 MouseTilePosition, Cursor, Hover work
   - [X] Add component types

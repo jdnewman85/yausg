@@ -43,6 +43,8 @@ fn main() {
             laddermap::tile_highlight_system,
             laddermap::ladder_tile_highlight_system,
             laddermap::ladder_tile_unhighlight_system,
+            laddermap::ladder_tile_focus_highlight_system,
+            laddermap::ladder_tile_focus_unhighlight_system,
         ))
         //.insert_resource(Msaa::Off)
         .register_type::<vladder::InputModule>()
