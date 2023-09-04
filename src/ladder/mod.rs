@@ -1,5 +1,4 @@
-use std::ops::Deref;
-use bevy::{prelude::*, input::mouse::MouseWheel, ecs::query::Has};
+use bevy::{prelude::*, ecs::query::Has};
 use bevy_prototype_lyon::prelude::*;
 
 use num_derive::FromPrimitive;
@@ -83,6 +82,8 @@ pub struct BoolElement {
 impl BoolElement {
     //TODO Trait?
     fn path_string(&self) -> String {
+        //TODO OPT? Memo: Contact/Coil and the Nc line are separate same path sections, and could
+        //be extracted, and combined here instead of the match arms
         match (self.contact_or_coil, self.polarity) {
             (ContactOrCoil::Contact, Polarity::NO) => "M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125 M 0,0.5 H 0.375",
             (ContactOrCoil::Contact, Polarity::NC) => "M 0.6875,0.25L 0.3125,0.75 M 0.375,0.5 H 0 M 0.625,0.5 H 1.0 M 0.625,0.1875 V 0.8125 M 0.375,0.1875 V 0.8125",
@@ -98,41 +99,17 @@ pub struct TileLabelRef(Entity);
 #[derive(Component)]
 pub struct TileLabel;
 
-//TODO Are these that useful?
-//TODO Can it be a derive marco?
-impl Deref for TileLabelRef {
-    type Target = Entity;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 #[derive(Component)]
 pub struct FocusedRef(Entity);
 
 #[derive(Component)]
 pub struct Focused;
 
-impl Deref for FocusedRef {
-    type Target = Entity;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-
 #[derive(Component)]
 pub struct HoveredRef(Entity);
 
 #[derive(Component)]
 pub struct Hovered;
-
-impl Deref for HoveredRef {
-    type Target = Entity;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 #[derive(Component)]
 pub struct TileMapCursorRef(Entity);
@@ -143,23 +120,9 @@ pub struct TileMapCursor;
 #[derive(Component)]
 pub struct MouseTilePosition(UVec2);
 
-impl Deref for TileMapCursorRef {
-    type Target = Entity;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 
 #[derive(Component)]
 pub struct TilePosition(UVec2);
-
-impl Deref for TilePosition {
-    type Target = UVec2;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 //TODO
 const Z_ORDER_SPRITE: f32 = 1.0;
@@ -213,7 +176,7 @@ impl LadderTileMap {
         size: UVec2,
     ) -> Self {
         LadderTileMap {
-            size, //TODO
+            size,
             tiles: default(),
         }
     }
@@ -226,7 +189,7 @@ impl LadderTileMap {
         self.tiles.iter().enumerate().for_each(|(x, tile_col)| {
             tile_col.iter().enumerate().for_each(|(y, entity)| {
                 let mut tile = tile_query.get_mut(entity.clone()).unwrap();
-                func(&mut tile, UVec2::new(x.try_into().unwrap(), y.try_into().unwrap()), self.size);
+                func(&mut tile, UVec2::new(x as u32, y as u32), self.size);
             });
         });
     }
@@ -251,7 +214,6 @@ impl LadderTileMap {
         Rect::from_corners(position, position + self.pixel_size())
     }
 
-    //TODO BUG - negative coordinates
     pub fn pixel_to_tile_position(&self, transform: &Transform, pixel_coords: Vec2) -> Option<UVec2> {
         if !self.contains_pixel_position(transform, pixel_coords) { return None }
         let position = transform.translation.truncate();
@@ -293,34 +255,6 @@ pub fn ladder_tile_path_update_system(
                 &tess::geom::Transform::<f32>::scale(TILE_SIZE.x, -TILE_SIZE.y) //TODO Fix invert y
             )
         );
-    }
-}
-
-pub fn ladder_debug_cpu_debug_system(
-    tilemap_query: Query<(&LadderTileMap, Option<&DebugCpuModule>)>,
-) {
-    for (_tilemap, maybe_debug_cpu) in tilemap_query.iter() {
-        //TODO TEMP - Testing debug_cpu
-        if let Some(debug_cpu) = maybe_debug_cpu {
-            debug_cpu.digital("Xamo69".to_string()).unwrap();
-        }
-    }
-}
-
-pub fn ladder_print_system(
-    input: Res<Input<KeyCode>>,
-    tilemap_query: Query<(&LadderTileMap, &Name)>,
-    tile_query: Query<&Tile>,
-) {
-    if !input.just_pressed(KeyCode::L) { return; }
-    for (tilemap, name) in tilemap_query.iter() {
-        println!("Tilemap: {name}");
-        for (x, col) in tilemap.tiles.iter().enumerate() {
-            for (y, tile_entity) in col.iter().enumerate() {
-                let tile = tile_query.get(*tile_entity).unwrap();
-                println!("\tTile @ ({x}, {y}) == {tile:?}")
-            }
-        }
     }
 }
 
@@ -371,15 +305,14 @@ pub fn tilemap_cursor_system(
     for (tilemap_entity, mouse_tile_position, maybe_cursor_tile_ref) in tilemap_query.iter_mut() {
         match maybe_cursor_tile_ref {
             None => {
-//                let cursor_entity = spawn_tile_cursor(&mut commands, mouse_tile_position.0);
-                let cursor_entity = commands.spawn(tile_cursor_bundle(mouse_tile_position.0)).id();
+                let cursor_entity = spawn_tile_cursor(&mut commands, mouse_tile_position.0);
                 commands.entity(tilemap_entity)
                     .push_children(&vec![cursor_entity])
                     .insert(TileMapCursorRef(cursor_entity)
                 );
             },
             Some(cursor_tile_ref) => {
-                let (mut cursor_transform, mut cursor_tile_position) = cursor_query.get_mut(**cursor_tile_ref).unwrap();
+                let (mut cursor_transform, mut cursor_tile_position) = cursor_query.get_mut(cursor_tile_ref.0).unwrap();
                 cursor_transform.translation = (mouse_tile_position.0.as_vec2()*TILE_SIZE).extend(Z_ORDER_CURSOR);
                 cursor_tile_position.0 = mouse_tile_position.0;
             },
@@ -396,7 +329,7 @@ pub fn tilemap_cursor_removal_system(
             dbg!("TODO FIX ME: MouseTilePosition removed, but no TileMapCursorRef in cursor query");
             return;
         };
-        let cursor_entity = **tilemap_cursor_ref;
+        let cursor_entity = tilemap_cursor_ref.0;
         commands.entity(tilemap_entity).remove::<TileMapCursorRef>();
         commands.entity(cursor_entity).despawn_recursive();
     }
@@ -434,7 +367,7 @@ pub fn tilemap_hover_removal_system(
             dbg!("TODO FIX ME: MouseTilePosition removed, but no HoveredRef in query");
             return;
         };
-        commands.entity(**tilemap_hover_ref).remove::<Hovered>();
+        commands.entity(tilemap_hover_ref.0).remove::<Hovered>();
         commands.entity(tilemap_entity).remove::<HoveredRef>();
     }
 }
@@ -536,23 +469,6 @@ pub fn ladder_tile_mouse_system(
     }
 }
 
-pub fn test_clear_tilemap_system(
-    input: Res<Input<KeyCode>>,
-    tilemap_query: Query<&mut LadderTileMap>,
-    mut tile_query: Query<&mut Tile>,
-) {
-    if !input.just_pressed(KeyCode::Key0) { return; }
-
-    for tilemap in tilemap_query.iter() {
-        tilemap.apply_pos_fn(|tile, position, size| {
-            *tile = match (&tile, position, size) {
-                (_, pos, size) if pos.x == 0 || pos.x == size.x-1 => Tile::Wire(Wire::Vert),
-                (_, _, _) => Tile::None,
-            }
-        }, &mut tile_query);
-    }
-}
-
 pub fn ladder_init_system(
     mut commands: Commands,
     mut tilemap_query: Query<(&mut LadderTileMap, Entity), Added<LadderTileMap>>,
@@ -561,13 +477,14 @@ pub fn ladder_init_system(
         tilemap.tiles =
             (0..tilemap.width()).map(|x| {
                 (0..tilemap.height()).map(|y| {
-                    let tile_entity = spawn_tile(&mut commands, Tile::default(), Vec2::new(x as f32, y as f32));
-                    commands.entity(tilemap_entity)
-                        .push_children(&vec![tile_entity]);
-                    tile_entity
+                    spawn_tile(&mut commands, Tile::default(), Vec2::new(x as f32, y as f32))
                 }).collect()
             }).collect()
         ;
+
+        let children: Vec<Entity> = tilemap.tiles.iter().flatten().copied().collect();
+        commands.entity(tilemap_entity)
+            .push_children(&children);
     }
 }
 
@@ -659,110 +576,46 @@ pub fn ladder_tile_label_update_system(
 }
 
 
-
-
-
-//TODO REM? Alternitive ways of doing things
-
-//TODO Children are difficult with bundle returns rather than spawn functions
-#[derive(Bundle)]
-struct TileCursorBundle {
-    tilemap_cursor: TileMapCursor,
-    tile_position: TilePosition,
-    shape_bundle: ShapeBundle,
-    stroke: Stroke,
-    fill: Fill,
-}
-
-fn tile_cursor_bundle(
-    tile_position: UVec2,
-) -> TileCursorBundle {
-    let cursor_path = format!("M 0,0 H {} V {} H 0 Z", TILE_SIZE.x, TILE_SIZE.y);
-    TileCursorBundle {
-        tilemap_cursor: TileMapCursor,
-        tile_position: TilePosition(tile_position),
-        shape_bundle: ShapeBundle {
-            transform: Transform::from_translation(
-                (tile_position.as_vec2()*TILE_SIZE).extend(Z_ORDER_CURSOR)
-            ),
-            path: GeometryBuilder::build_as(&shapes::SvgPathShape {
-                svg_path_string: cursor_path,
-                svg_doc_size_in_px: Vec2::Y * (TILE_SIZE.y * 2.0), //TODO HACK Invert Y
-            }),
-            ..default()
-        },
-        stroke: Stroke::new(Color::BLACK, 2.0),
-        fill: Fill::color(Color::rgb(0.7, 0.7, 0.9)),
-    }
-}
-
-pub fn ladder_tile_label_update_system_sans_ref(
-    mut tile_query: Query<(&Tile, &Children), Changed<Tile>>,
-    mut label_query: Query<&mut Text, With<TileLabel>>,
+pub fn test_clear_tilemap_system(
+    input: Res<Input<KeyCode>>,
+    tilemap_query: Query<&mut LadderTileMap>,
+    mut tile_query: Query<&mut Tile>,
 ) {
-    for (changed_tile, children) in tile_query.iter_mut() {
-        //Can't use for loop with iter_many_mut
-        //for mut label_text in label_query.iter_many_mut(children) {
-        let mut iter = label_query.iter_many_mut(children);
-        let mut label_text = iter.fetch_next().unwrap();
-        *label_text = Text::from_section(
-            changed_tile.label_string(),
-            TextStyle {
-                font_size: 24.0,
-                color: Color::BLACK,
-                ..default()
+    if !input.just_pressed(KeyCode::Key0) { return; }
+
+    for tilemap in tilemap_query.iter() {
+        tilemap.apply_pos_fn(|tile, position, size| {
+            *tile = match (&tile, position, size) {
+                (_, pos, size) if pos.x == 0 || pos.x == size.x-1 => Tile::Wire(Wire::Vert),
+                (_, _, _) => Tile::None,
             }
-        ).with_alignment(TextAlignment::Center);
+        }, &mut tile_query);
     }
 }
 
-pub fn ladder_tile_mouse_system_old(
-    mouse_buttons: Res<Input<MouseButton>>,
-    mut scroll_events: EventReader<MouseWheel>,
-    tilemap_query: Query<&LadderTileMap>,
-    mut tile_query: Query<(&mut Tile, &TilePosition, &Parent), With<Hovered>>,
+pub fn ladder_debug_cpu_debug_system(
+    tilemap_query: Query<(&LadderTileMap, Option<&DebugCpuModule>)>,
 ) {
-    for (mut tile, tile_position, parent) in tile_query.iter_mut() {
-        let tilemap = tilemap_query.get(parent.get()).unwrap();
-
-        //TODO impl further mouse interface
-        if mouse_buttons.just_pressed(MouseButton::Left) {
-            let is_coil_column = tile_position.x == tilemap.width()-1;
-            let contact_or_coil = match is_coil_column {
-                false => ContactOrCoil::Contact,
-                true => ContactOrCoil::Coil,
-            };
-
-            *tile = Tile::BoolElement(BoolElement {
-                contact_or_coil,
-                address: "Z09".into(),
-                polarity: Polarity::NO,
-            });
+    for (_tilemap, maybe_debug_cpu) in tilemap_query.iter() {
+        //TODO TEMP - Testing debug_cpu
+        if let Some(debug_cpu) = maybe_debug_cpu {
+            debug_cpu.digital("Xamo69".to_string()).unwrap();
         }
+    }
+}
 
-        if mouse_buttons.just_pressed(MouseButton::Right) {
-            let (is_none, is_wire) = match *tile {
-                Tile::None => (true, false),
-                Tile::Wire(_) => (false, true),
-                _ => (false, false),
-            };
-            let is_coil_column = tile_position.y == tilemap.width()-1;
-
-            *tile = match (is_none, is_wire, is_coil_column) {
-                (false, _    , _    ) => Tile::None,
-                (true , _    , true ) => tile.clone(), //TODO Opt, cloning self
-                (true , false, false) => Tile::Wire(Wire::default()),
-                (true , true , false) => Tile::None,
-            };
-        }
-
-        for event in scroll_events.iter() {
-            //TODO handle each event.unit differently
-            //TODO handle scroll values
-            match *tile {
-                Tile::None => { },
-                Tile::BoolElement(ref mut bool_element) => bool_element.polarity.invert(),
-                Tile::Wire(ref mut wire) => wire.scroll(event.y),
+pub fn ladder_print_system(
+    input: Res<Input<KeyCode>>,
+    tilemap_query: Query<(&LadderTileMap, &Name)>,
+    tile_query: Query<&Tile>,
+) {
+    if !input.just_pressed(KeyCode::L) { return; }
+    for (tilemap, name) in tilemap_query.iter() {
+        println!("Tilemap: {name}");
+        for (x, col) in tilemap.tiles.iter().enumerate() {
+            for (y, tile_entity) in col.iter().enumerate() {
+                let tile = tile_query.get(*tile_entity).unwrap();
+                println!("\tTile @ ({x}, {y}) == {tile:?}")
             }
         }
     }
