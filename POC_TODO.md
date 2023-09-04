@@ -1,21 +1,10 @@
 # Prototype todo
+## Constant Considerations
+Always ask, should it be a component?
+Need effort in keeping display/action systems separate, yet synced properly
 
-
-BUGS
-  Hover isn't removed on leaving tilemap
-  Focus is removed on cursor move
-  *Both* Probably related to them all setting stroke
-    specifically, ladder_tile_unhighlight_system setting it back to black
-    We should have only one system control any one output
-
+## Misc Current Notes
 Probably want the ability to have a below, above and local component for highlight/focus
-
-
-
-
-
-One system should be responsible for setting things like style updates for tiles
-  Multiple cause issues, fe: stroke/fill
 
 MouseTilePosition, Cursor, Hover work
   - [X] Add component types
@@ -32,7 +21,6 @@ MouseTilePosition, Cursor, Hover work
   - [X] If off tilemap, and does exist
     - [X] remove cursor
     - [ ] In-front layer and behind layer?
-
 - [X] Better hover indicator
 - Focus
   - on click
@@ -42,16 +30,6 @@ MouseTilePosition, Cursor, Hover work
   - Needs modal?
     - Or maybe leave it as invalid till fixed?
 
-
-NamedRefMap?
-  Component that has hashmap of string->entity references?
-  Not sure if this, individual refs, or query of children with the marker components
-  If too broad, adds too many queries to the system
-
-
-Always ask, should it be a component?
-
-Need effort in keeping display/action systems separate, yet synced properly
 
 Current Tilemap mouse editing functionality should be based on tilemap+some other markers
   Want differing systems for a ladder editor view and a toolbar, which both may use tilemap
@@ -110,7 +88,6 @@ Try to generalize ladder display
     To/from graph
   Tile based editor
   Node based editor
-
 
 Change to using graph structure for rung/ladder?
   Graph lib, w/ entities
@@ -171,7 +148,7 @@ and what addressing the address space within the object?
 
 
 
-Let's change to not creating tiles until needed?
+Let's change to not creating tiles until needed? Sparse
   Per Rung?
 
 Need selection and mouse over
@@ -205,6 +182,55 @@ LadderMap will probably scroll, and so should probably also only display a porti
 
 
 
+
+## Moar
+
+
+- [ ] Editor
+  - [ ] Grid
+    - [ ] Drawing
+    - [ ] Click detection
+  - [ ] Contacts
+  - [ ] Coils
+  - [ ] Connections
+  - [ ] Realtime status display
+- [ ] Ld2Il Compiler
+  - [ ] Generate IL
+- [ ] IL Executor
+  - [ ] IO
+  - [ ] Simple static function
+  - [ ] Simple Contact, Coil, and Connections
+- [ ] Machine
+  - [ ] Predefined
+  - [ ] Output actuators
+  - [ ] Input sensors
+
+
+
+- [ ] Levels
+  - [ ] Simple momentary circuit for lights
+  - [ ] Actuator puzzle should be impossible without the light, but easy with
+
+  - [ ] Force latching
+  - [ ] Add sensors that can be used
+
+  - [ ] Force completion with help of sensors
+    - [ ] Possible reasons
+      - [ ] Sensor senses more than camera
+      - [ ] Reaction time
+      - [ ] User input limit, such as needing their outputs for something else
+  - [ ] Force completion autonomously
+
+
+
+
+
+# OLD
+
+NamedRefMap?
+  Component that has hashmap of string->entity references?
+  Not sure if this, individual refs, or query of children with the marker components
+  If too broad, adds too many queries to the system
 
 ## LadderTile buildout
   Display Info
@@ -248,54 +274,9 @@ LadderMap will probably scroll, and so should probably also only display a porti
 
 Maybe the tilemap should have functions to define child arrangement?
 
-## Moar
 
-Selection Ideas
-  Store in laddermap?
-  And add as component?
-  Add system that checks validity and removes if needed
-  While also doing the highlighting itself maybe?
-
-
-- [ ] Editor
-  - [ ] Grid
-    - [ ] Drawing
-    - [ ] Click detection
-  - [ ] Contacts
-  - [ ] Coils
-  - [ ] Connections
-  - [ ] Realtime status display
-- [ ] Ld2Il Compiler
-  - [ ] Generate IL
-- [ ] IL Executor
-  - [ ] IO
-  - [ ] Simple static function
-  - [ ] Simple Contact, Coil, and Connections
-- [ ] Machine
-  - [ ] Predefined
-  - [ ] Output actuators
-  - [ ] Input sensors
-
-
-
-- [ ] Levels
-  - [ ] Simple momentary circuit for lights
-  - [ ] Actuator puzzle should be impossible without the light, but easy with
-
-  - [ ] Force latching
-  - [ ] Add sensors that can be used
-
-  - [ ] Force completion with help of sensors
-    - [ ] Possible reasons
-      - [ ] Sensor senses more than camera
-      - [ ] Reaction time
-      - [ ] User input limit, such as needing their outputs for something else
-  - [ ] Force completion autonomously
-
-
-
-# Hacks
-## iter_many_mut
+## Hacks
+### iter_many_mut
 //HACK, iter_many_mut doesn't impl Iterator with mut, but instead FusedIter
 //  Requiring fetch_next() when needing mut access, instead of next(), which
 //  has a lifetime signature that isn't compatible with safety guarantees
@@ -306,8 +287,14 @@ let mut iter = label_query.iter_many_mut(children);
 while let Some(mut label_text) = iter.fetch_next() {
 
 
+BUGS
+  *fixed* by combining systems modifying the same value into one style system
+  Hover isn't removed on leaving tilemap
+  Focus is removed on cursor move
+  *Both* Probably related to them all setting stroke
+    specifically, ladder_tile_unhighlight_system setting it back to black
+    We should have only one system control any one output
 
-# OLD
 Should I be prefering bundles as return for spawn functions?
   *decision* atm, returning bundles makes children entities more difficult
     Staying with spawning functions for now
@@ -414,4 +401,10 @@ Switch to single image frames again for now
     Set offset and size for paths
     Align centers if wanted
     Explore XML and copy out svg path
+
+Selection Ideas
+  Store in laddermap?
+  And add as component?
+  Add system that checks validity and removes if needed
+  While also doing the highlighting itself maybe?
 
