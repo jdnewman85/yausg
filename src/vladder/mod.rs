@@ -64,8 +64,8 @@ impl DebugCpuModule {
     pub fn digital(&self, address: String) -> Result<bool, Box<dyn Error>> {
         let re = Regex::new(r"([[:alpha:]]+)(\d+)").unwrap();
         let captures = re.captures(&address).ok_or(AddressError)?;
-        let word = captures.get(1).ok_or(AddressError)?;
-        let number = captures.get(2).ok_or(AddressError)?;
+        let _word = captures.get(1).ok_or(AddressError)?;
+        let _number = captures.get(2).ok_or(AddressError)?;
 
         //TODO Finish
         //dbg!(word, number);

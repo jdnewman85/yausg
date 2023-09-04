@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use bevy::{prelude::*, input::mouse::MouseWheel};
+use bevy::{prelude::*, input::mouse::MouseWheel, ecs::query::Has};
 use bevy_prototype_lyon::prelude::*;
 
 use num_derive::FromPrimitive;
@@ -371,7 +371,8 @@ pub fn tilemap_cursor_system(
     for (tilemap_entity, mouse_tile_position, maybe_cursor_tile_ref) in tilemap_query.iter_mut() {
         match maybe_cursor_tile_ref {
             None => {
-                let cursor_entity = Some(spawn_tile_cursor(&mut commands, mouse_tile_position.0)).unwrap();
+//                let cursor_entity = spawn_tile_cursor(&mut commands, mouse_tile_position.0);
+                let cursor_entity = commands.spawn(tile_cursor_bundle(mouse_tile_position.0)).id();
                 commands.entity(tilemap_entity)
                     .push_children(&vec![cursor_entity])
                     .insert(TileMapCursorRef(cursor_entity)
@@ -401,7 +402,7 @@ pub fn tilemap_cursor_removal_system(
     }
 }
 
-pub fn tile_highlight_system(
+pub fn tile_hover_system(
     mut commands: Commands,
     mut tilemap_query: Query<(Entity, &LadderTileMap, &MouseTilePosition, Option<&mut HoveredRef>), Changed<MouseTilePosition>>,
 ) {
@@ -421,6 +422,20 @@ pub fn tile_highlight_system(
                 commands.entity(tile_entity).insert(Hovered);
             },
         }
+    }
+}
+pub fn tilemap_hover_removal_system(
+    mut commands: Commands,
+    mut removed_entities: RemovedComponents<MouseTilePosition>,
+    unhovered_tilemap_query: Query<&HoveredRef, Without<MouseTilePosition>>
+) {
+    for tilemap_entity in &mut removed_entities {
+        let Ok(tilemap_hover_ref) = unhovered_tilemap_query.get(tilemap_entity) else {
+            dbg!("TODO FIX ME: MouseTilePosition removed, but no HoveredRef in query");
+            return;
+        };
+        commands.entity(**tilemap_hover_ref).remove::<Hovered>();
+        commands.entity(tilemap_entity).remove::<HoveredRef>();
     }
 }
 
@@ -447,40 +462,46 @@ fn spawn_tile_cursor(
     )).id()
 }
 
-pub fn ladder_tile_highlight_system(
-    mut tile_query: Query<&mut Stroke, Added<Hovered>>,
-) {
-    for mut stroke in tile_query.iter_mut() {
-        *stroke = Stroke::new(Color::GREEN, 2.0);
-    }
-}
+#[derive(Component)]
+pub struct NeedsStyleUpdate;
+
+//TODO Rename to unhover
 pub fn ladder_tile_unhighlight_system(
+    mut commands: Commands,
     mut removed_hovered_entities: RemovedComponents<Hovered>,
-    mut tile_query: Query<&mut Stroke, Without<Hovered>>,
 ) {
     for unhovered_entity in &mut removed_hovered_entities {
-        let mut stroke = tile_query.get_mut(unhovered_entity).unwrap();
-        *stroke = Stroke::new(Color::BLACK, 1.0);
+        //dbg!("ladder_tile_unhighlight_system");
+        commands.entity(unhovered_entity).insert(NeedsStyleUpdate);
+    }
+}
+//TODO Rename to unhover
+pub fn ladder_tile_focus_unhighlight_system(
+    mut commands: Commands,
+    mut removed_focused_entities: RemovedComponents<Focused>,
+) {
+    for unfocused_entity in &mut removed_focused_entities {
+        //dbg!("ladder_tile_focus_unhighlight_system");
+        commands.entity(unfocused_entity).insert(NeedsStyleUpdate);
     }
 }
 
-pub fn ladder_tile_focus_highlight_system(
-    mut tile_query: Query<&mut Stroke, Added<Focused>>,
+pub fn tile_style_system(
+    mut commands: Commands,
+    mut tile_query: Query<
+        (Entity, &mut Stroke, Has<Hovered>, Has<Focused>),
+        Or<(Added<Hovered>, Added<Focused>, Added<NeedsStyleUpdate>)>
+    >,
 ) {
-    for mut stroke in tile_query.iter_mut() {
-        *stroke = Stroke::new(Color::GREEN, 6.0);
-    }
-}
-pub fn ladder_tile_focus_unhighlight_system(
-    mut removed_focused_entities: RemovedComponents<Focused>,
-    mut tile_query: Query<&mut Stroke, Without<Focused>>,
-) {
-    for unfocused_entity in &mut removed_focused_entities {
-        let Ok(mut stroke) = tile_query.get_mut(unfocused_entity) else {
-            dbg!("TODO FIX ME: abcd");
-            return;
+    for (tile_entity, mut stroke, hovered, focused) in tile_query.iter_mut() {
+    //dbg!("tile_style_system");
+        commands.entity(tile_entity).remove::<NeedsStyleUpdate>();
+        *stroke = match (hovered, focused) {
+            (false, false) => Stroke::new(Color::BLACK, 2.0),
+            (false, true) => Stroke::new(Color::GREEN, 2.0),
+            (true, false) => Stroke::new(Color::BLACK, 4.0),
+            (true, true) => Stroke::new(Color::GREEN, 4.0),
         };
-        *stroke = Stroke::new(Color::BLACK, 1.0);
     }
 }
 
@@ -510,58 +531,6 @@ pub fn ladder_tile_mouse_system(
             //Unselect previous
             if let Some(focused_ref) = maybe_focused_ref {
                 commands.entity(focused_ref.0).remove::<Focused>();
-            }
-        }
-    }
-}
-
-pub fn ladder_tile_mouse_system_old(
-    mouse_buttons: Res<Input<MouseButton>>,
-    mut scroll_events: EventReader<MouseWheel>,
-    tilemap_query: Query<&LadderTileMap>,
-    mut tile_query: Query<(&mut Tile, &TilePosition, &Parent), With<Hovered>>,
-) {
-    for (mut tile, tile_position, parent) in tile_query.iter_mut() {
-        let tilemap = tilemap_query.get(parent.get()).unwrap();
-
-        //TODO impl further mouse interface
-        if mouse_buttons.just_pressed(MouseButton::Left) {
-            let is_coil_column = tile_position.x == tilemap.width()-1;
-            let contact_or_coil = match is_coil_column {
-                false => ContactOrCoil::Contact,
-                true => ContactOrCoil::Coil,
-            };
-
-            *tile = Tile::BoolElement(BoolElement {
-                contact_or_coil,
-                address: "Z09".into(),
-                polarity: Polarity::NO,
-            });
-        }
-
-        if mouse_buttons.just_pressed(MouseButton::Right) {
-            let (is_none, is_wire) = match *tile {
-                Tile::None => (true, false),
-                Tile::Wire(_) => (false, true),
-                _ => (false, false),
-            };
-            let is_coil_column = tile_position.y == tilemap.width()-1;
-
-            *tile = match (is_none, is_wire, is_coil_column) {
-                (false, _    , _    ) => Tile::None,
-                (true , _    , true ) => tile.clone(), //TODO Opt, cloning self
-                (true , false, false) => Tile::Wire(Wire::default()),
-                (true , true , false) => Tile::None,
-            };
-        }
-
-        for event in scroll_events.iter() {
-            //TODO handle each event.unit differently
-            //TODO handle scroll values
-            match *tile {
-                Tile::None => { },
-                Tile::BoolElement(ref mut bool_element) => bool_element.polarity.invert(),
-                Tile::Wire(ref mut wire) => wire.scroll(event.y),
             }
         }
     }
@@ -623,7 +592,7 @@ fn spawn_tile(
             }),
             ..default()
         },
-        Stroke::new(Color::BLACK, 1.0),
+        Stroke::new(Color::BLACK, 2.0),
     )).id();
 
     let tile_label_entity = spawn_tilelabel(&mut commands, label_text);
@@ -647,7 +616,7 @@ fn spawn_tilelabel(
     .with_alignment(TextAlignment::Center);
 
     commands.spawn((
-        TileLabel{},
+        TileLabel,
         Text2dBundle {
             text: new_label_text.clone(),
             text_anchor: bevy::sprite::Anchor::Center,
@@ -689,6 +658,44 @@ pub fn ladder_tile_label_update_system(
     }
 }
 
+
+
+
+
+//TODO REM? Alternitive ways of doing things
+
+//TODO Children are difficult with bundle returns rather than spawn functions
+#[derive(Bundle)]
+struct TileCursorBundle {
+    tilemap_cursor: TileMapCursor,
+    tile_position: TilePosition,
+    shape_bundle: ShapeBundle,
+    stroke: Stroke,
+    fill: Fill,
+}
+
+fn tile_cursor_bundle(
+    tile_position: UVec2,
+) -> TileCursorBundle {
+    let cursor_path = format!("M 0,0 H {} V {} H 0 Z", TILE_SIZE.x, TILE_SIZE.y);
+    TileCursorBundle {
+        tilemap_cursor: TileMapCursor,
+        tile_position: TilePosition(tile_position),
+        shape_bundle: ShapeBundle {
+            transform: Transform::from_translation(
+                (tile_position.as_vec2()*TILE_SIZE).extend(Z_ORDER_CURSOR)
+            ),
+            path: GeometryBuilder::build_as(&shapes::SvgPathShape {
+                svg_path_string: cursor_path,
+                svg_doc_size_in_px: Vec2::Y * (TILE_SIZE.y * 2.0), //TODO HACK Invert Y
+            }),
+            ..default()
+        },
+        stroke: Stroke::new(Color::BLACK, 2.0),
+        fill: Fill::color(Color::rgb(0.7, 0.7, 0.9)),
+    }
+}
+
 pub fn ladder_tile_label_update_system_sans_ref(
     mut tile_query: Query<(&Tile, &Children), Changed<Tile>>,
     mut label_query: Query<&mut Text, With<TileLabel>>,
@@ -708,3 +715,56 @@ pub fn ladder_tile_label_update_system_sans_ref(
         ).with_alignment(TextAlignment::Center);
     }
 }
+
+pub fn ladder_tile_mouse_system_old(
+    mouse_buttons: Res<Input<MouseButton>>,
+    mut scroll_events: EventReader<MouseWheel>,
+    tilemap_query: Query<&LadderTileMap>,
+    mut tile_query: Query<(&mut Tile, &TilePosition, &Parent), With<Hovered>>,
+) {
+    for (mut tile, tile_position, parent) in tile_query.iter_mut() {
+        let tilemap = tilemap_query.get(parent.get()).unwrap();
+
+        //TODO impl further mouse interface
+        if mouse_buttons.just_pressed(MouseButton::Left) {
+            let is_coil_column = tile_position.x == tilemap.width()-1;
+            let contact_or_coil = match is_coil_column {
+                false => ContactOrCoil::Contact,
+                true => ContactOrCoil::Coil,
+            };
+
+            *tile = Tile::BoolElement(BoolElement {
+                contact_or_coil,
+                address: "Z09".into(),
+                polarity: Polarity::NO,
+            });
+        }
+
+        if mouse_buttons.just_pressed(MouseButton::Right) {
+            let (is_none, is_wire) = match *tile {
+                Tile::None => (true, false),
+                Tile::Wire(_) => (false, true),
+                _ => (false, false),
+            };
+            let is_coil_column = tile_position.y == tilemap.width()-1;
+
+            *tile = match (is_none, is_wire, is_coil_column) {
+                (false, _    , _    ) => Tile::None,
+                (true , _    , true ) => tile.clone(), //TODO Opt, cloning self
+                (true , false, false) => Tile::Wire(Wire::default()),
+                (true , true , false) => Tile::None,
+            };
+        }
+
+        for event in scroll_events.iter() {
+            //TODO handle each event.unit differently
+            //TODO handle scroll values
+            match *tile {
+                Tile::None => { },
+                Tile::BoolElement(ref mut bool_element) => bool_element.polarity.invert(),
+                Tile::Wire(ref mut wire) => wire.scroll(event.y),
+            }
+        }
+    }
+}
+

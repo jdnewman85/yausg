@@ -1,15 +1,16 @@
 # Prototype todo
 
 
-Think I should move away from childbuilder
-
 BUGS
+  Hover isn't removed on leaving tilemap
   Focus is removed on cursor move
-  Highlight isn't removed on leaving tilemap
+  *Both* Probably related to them all setting stroke
+    specifically, ladder_tile_unhighlight_system setting it back to black
+    We should have only one system control any one output
 
 Probably want the ability to have a below, above and local component for highlight/focus
 
-Should I be prefering bundles as return for spawn functions?
+
 
 
 
@@ -19,7 +20,7 @@ One system should be responsible for setting things like style updates for tiles
 MouseTilePosition, Cursor, Hover work
   - [X] Add component types
   - [X] Add spawn function
-  - [ ] Use in current mouse input system?
+  - [-] Use in current mouse input system?
     - [X] Tried
     - [X] Bad idea, move to own system
         - [X] ... Could I just use the TilePosition component I'm calcing and adding to the TM?
@@ -307,6 +308,16 @@ while let Some(mut label_text) = iter.fetch_next() {
 
 
 # OLD
+Should I be prefering bundles as return for spawn functions?
+  *decision* atm, returning bundles makes children entities more difficult
+    Staying with spawning functions for now
+Think I should move away from childbuilder
+  *did*
+  Functions that return bundles
+    *Ick* Children must be attatched at spawn time
+  Functions that spawn and return ids
+    *this* Since it makes children easier
+
 Probably need my own label type and maybe sub types as components
   *yep, did*
   This would make addressing easier without having to crawl children

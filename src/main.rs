@@ -9,7 +9,7 @@ use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
 
 mod camera;
-mod laddermap;
+mod ladder;
 mod utils;
 mod vladder;
 
@@ -29,22 +29,23 @@ fn main() {
             camera::orbital_camera_system,
             //camera::god_mode_camera_system,
             utils::screenshot_on_spacebar,
-            laddermap::ladder_init_system,
-            laddermap::ladder_print_system,
-            laddermap::ladder_tile_path_update_system,
-            laddermap::test_clear_tilemap_system,
-            laddermap::tile_label_reference_system,
-            laddermap::ladder_tile_label_update_system,
+            ladder::ladder_init_system,
+            ladder::ladder_print_system,
+            ladder::ladder_tile_path_update_system,
+            ladder::test_clear_tilemap_system,
+            ladder::tile_label_reference_system,
+            ladder::ladder_tile_label_update_system,
 
-            laddermap::ladder_tile_mouse_system,
-            laddermap::tilemap_mouse_position_system,
-            laddermap::tilemap_cursor_system,
-            laddermap::tilemap_cursor_removal_system,
-            laddermap::tile_highlight_system,
-            laddermap::ladder_tile_highlight_system,
-            laddermap::ladder_tile_unhighlight_system,
-            laddermap::ladder_tile_focus_highlight_system,
-            laddermap::ladder_tile_focus_unhighlight_system,
+            ladder::ladder_tile_mouse_system,
+            ladder::tilemap_mouse_position_system,
+            ladder::tilemap_cursor_system,
+            ladder::tilemap_cursor_removal_system,
+            ladder::tile_hover_system,
+            ladder::tilemap_hover_removal_system,
+
+            ladder::ladder_tile_unhighlight_system,
+            ladder::ladder_tile_focus_unhighlight_system,
+            ladder::tile_style_system,
         ))
         //.insert_resource(Msaa::Off)
         .register_type::<vladder::InputModule>()
@@ -154,7 +155,7 @@ fn setup(
 
 
     //TODO Move to tilemap init function
-    let tilemap = laddermap::LadderTileMap::new(UVec2::new(8, 8));
+    let tilemap = ladder::LadderTileMap::new(UVec2::new(8, 8));
     let tilemap_pixel_size = tilemap.pixel_size();
     let tile_map_path = format!("M 0,0 H {} V {} H 0 Z", tilemap_pixel_size.x, tilemap_pixel_size.y);
     commands.spawn((
