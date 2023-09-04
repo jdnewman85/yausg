@@ -13,6 +13,10 @@ mod ladder;
 mod utils;
 mod vladder;
 
+use ladder::systems::*;
+use ladder::util_systems::*;
+use ladder::tilemap::LadderTileMap;
+
 fn main() {
     App::new()
         .add_plugins((
@@ -29,23 +33,23 @@ fn main() {
             camera::orbital_camera_system,
             //camera::god_mode_camera_system,
             utils::screenshot_on_spacebar,
-            ladder::ladder_init_system,
-            ladder::ladder_print_system,
-            ladder::ladder_tile_path_update_system,
-            ladder::test_clear_tilemap_system,
-            ladder::tile_label_reference_system,
-            ladder::ladder_tile_label_update_system,
+            ladder_init_system,
+            ladder_print_system,
+            ladder_tile_path_update_system,
+            test_clear_tilemap_system,
+            tile_label_reference_system,
+            ladder_tile_label_update_system,
 
-            ladder::ladder_tile_mouse_system,
-            ladder::tilemap_mouse_position_system,
-            ladder::tilemap_cursor_system,
-            ladder::tilemap_cursor_removal_system,
-            ladder::tile_hover_system,
-            ladder::tilemap_hover_removal_system,
+            ladder_tile_mouse_system,
+            tilemap_mouse_position_system,
+            tilemap_cursor_system,
+            tilemap_cursor_removal_system,
+            tile_hover_system,
+            tilemap_hover_removal_system,
 
-            ladder::ladder_tile_unhighlight_system,
-            ladder::ladder_tile_focus_unhighlight_system,
-            ladder::tile_style_system,
+            ladder_tile_unhighlight_system,
+            ladder_tile_focus_unhighlight_system,
+            tile_style_system,
         ))
         //.insert_resource(Msaa::Off)
         .register_type::<vladder::InputModule>()
@@ -155,7 +159,7 @@ fn setup(
 
 
     //TODO Move to tilemap init function
-    let tilemap = ladder::LadderTileMap::new(UVec2::new(8, 8));
+    let tilemap = LadderTileMap::new(UVec2::new(8, 8));
     let tilemap_pixel_size = tilemap.pixel_size();
     let tile_map_path = format!("M 0,0 H {} V {} H 0 Z", tilemap_pixel_size.x, tilemap_pixel_size.y);
     commands.spawn((
