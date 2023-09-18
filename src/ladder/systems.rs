@@ -4,23 +4,25 @@ use bevy_prototype_lyon::prelude::*;
 use super::*;
 use super::tile::*;
 use super::tilemap::*;
-use super::spawns::*;
+use super::spawners::*;
 
-pub fn ladder_tile_path_update_system(
-    mut tile_query: Query<(&Tile, &mut Path), Changed<Tile>>,
+
+pub fn ladder_init_system(
+    mut commands: Commands,
+    mut tilemap_query: Query<(&mut LadderTileMap, Entity), Added<LadderTileMap>>,
 ) {
-    for (tile, mut path) in tile_query.iter_mut() {
-        //Build paths
-        *path = GeometryBuilder::build_as(&shapes::SvgPathShape {
-            svg_path_string: tile.clone().path_string(),
-            //svg_doc_size_in_px: Vec2::new(-1.0, 1.0),
-            svg_doc_size_in_px: Vec2::ZERO,
-        });
-        *path = bevy_prototype_lyon::entity::Path(
-            path.0.clone().transformed(
-                &tess::geom::Transform::<f32>::scale(TILE_SIZE.x, -TILE_SIZE.y) //TODO Fix invert y
-            )
-        );
+    for (mut tilemap, tilemap_entity) in tilemap_query.iter_mut() {
+        tilemap.tiles =
+            (0..tilemap.width()).map(|x| {
+                (0..tilemap.height()).map(|y| {
+                    spawn_tile(&mut commands, Tile::default(), Vec2::new(x as f32, y as f32))
+                }).collect()
+            }).collect()
+        ;
+
+        let children: Vec<Entity> = tilemap.tiles.iter().flatten().copied().collect();
+        commands.entity(tilemap_entity)
+            .push_children(&children);
     }
 }
 
@@ -60,6 +62,8 @@ pub fn tilemap_mouse_position_system(
     }
 }
 
+///Cursor - Maybe combine with hover?
+
 pub fn tilemap_cursor_system(
     mut commands: Commands,
     mut tilemap_query: Query<
@@ -85,6 +89,7 @@ pub fn tilemap_cursor_system(
         };
     }
 }
+
 pub fn tilemap_cursor_removal_system(
     mut commands: Commands,
     mut removed_entities: RemovedComponents<MouseTilePosition>,
@@ -100,6 +105,8 @@ pub fn tilemap_cursor_removal_system(
         commands.entity(cursor_entity).despawn_recursive();
     }
 }
+
+///Hover
 
 pub fn tile_hover_system(
     mut commands: Commands,
@@ -123,6 +130,7 @@ pub fn tile_hover_system(
         }
     }
 }
+
 pub fn tilemap_hover_removal_system(
     mut commands: Commands,
     mut removed_entities: RemovedComponents<MouseTilePosition>,
@@ -148,35 +156,8 @@ pub fn ladder_tile_unhighlight_system(
         commands.entity(unhovered_entity).insert(NeedsStyleUpdate);
     }
 }
-//TODO Rename to unhover
-pub fn ladder_tile_focus_unhighlight_system(
-    mut commands: Commands,
-    mut removed_focused_entities: RemovedComponents<Focused>,
-) {
-    for unfocused_entity in &mut removed_focused_entities {
-        //dbg!("ladder_tile_focus_unhighlight_system");
-        commands.entity(unfocused_entity).insert(NeedsStyleUpdate);
-    }
-}
 
-pub fn tile_style_system(
-    mut commands: Commands,
-    mut tile_query: Query<
-        (Entity, &mut Stroke, Has<Hovered>, Has<Focused>),
-        Or<(Added<Hovered>, Added<Focused>, Added<NeedsStyleUpdate>)>
-    >,
-) {
-    for (tile_entity, mut stroke, hovered, focused) in tile_query.iter_mut() {
-    //dbg!("tile_style_system");
-        commands.entity(tile_entity).remove::<NeedsStyleUpdate>();
-        *stroke = match (hovered, focused) {
-            (false, false) => Stroke::new(Color::BLACK, 2.0),
-            (false, true) => Stroke::new(Color::GREEN, 2.0),
-            (true, false) => Stroke::new(Color::BLACK, 4.0),
-            (true, true) => Stroke::new(Color::GREEN, 4.0),
-        };
-    }
-}
+///Focus
 
 pub fn ladder_tile_mouse_system(
     mut commands: Commands,
@@ -209,24 +190,57 @@ pub fn ladder_tile_mouse_system(
     }
 }
 
-pub fn ladder_init_system(
+//TODO Rename to unfocus
+pub fn ladder_tile_focus_unhighlight_system(
     mut commands: Commands,
-    mut tilemap_query: Query<(&mut LadderTileMap, Entity), Added<LadderTileMap>>,
+    mut removed_focused_entities: RemovedComponents<Focused>,
 ) {
-    for (mut tilemap, tilemap_entity) in tilemap_query.iter_mut() {
-        tilemap.tiles =
-            (0..tilemap.width()).map(|x| {
-                (0..tilemap.height()).map(|y| {
-                    spawn_tile(&mut commands, Tile::default(), Vec2::new(x as f32, y as f32))
-                }).collect()
-            }).collect()
-        ;
-
-        let children: Vec<Entity> = tilemap.tiles.iter().flatten().copied().collect();
-        commands.entity(tilemap_entity)
-            .push_children(&children);
+    for unfocused_entity in &mut removed_focused_entities {
+        //dbg!("ladder_tile_focus_unhighlight_system");
+        commands.entity(unfocused_entity).insert(NeedsStyleUpdate);
     }
 }
+
+///Tile Styling
+
+pub fn tile_style_system(
+    mut commands: Commands,
+    mut tile_query: Query<
+        (Entity, &mut Stroke, Has<Hovered>, Has<Focused>),
+        Or<(Added<Hovered>, Added<Focused>, Added<NeedsStyleUpdate>)>
+    >,
+) {
+    for (tile_entity, mut stroke, hovered, focused) in tile_query.iter_mut() {
+    //dbg!("tile_style_system");
+        commands.entity(tile_entity).remove::<NeedsStyleUpdate>();
+        *stroke = match (hovered, focused) {
+            (false, false) => Stroke::new(Color::BLACK, 2.0),
+            (false, true) => Stroke::new(Color::GREEN, 2.0),
+            (true, false) => Stroke::new(Color::BLACK, 4.0),
+            (true, true) => Stroke::new(Color::GREEN, 4.0),
+        };
+    }
+}
+
+pub fn ladder_tile_path_update_system(
+    mut tile_query: Query<(&Tile, &mut Path), Changed<Tile>>,
+) {
+    for (tile, mut path) in tile_query.iter_mut() {
+        //Build paths
+        *path = GeometryBuilder::build_as(&shapes::SvgPathShape {
+            svg_path_string: tile.clone().path_string(),
+            //svg_doc_size_in_px: Vec2::new(-1.0, 1.0),
+            svg_doc_size_in_px: Vec2::ZERO,
+        });
+        *path = bevy_prototype_lyon::entity::Path(
+            path.0.clone().transformed(
+                &tess::geom::Transform::<f32>::scale(TILE_SIZE.x, -TILE_SIZE.y) //TODO Fix invert y
+            )
+        );
+    }
+}
+
+///Tile Label
 
 //Adds references to TileLabel child as TileLabelRef component on parent
 pub fn tile_label_reference_system(

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 pub mod tile;
 pub mod tilemap;
-pub mod spawns;
+pub mod spawners;
 pub mod systems;
 pub mod util_systems;
 

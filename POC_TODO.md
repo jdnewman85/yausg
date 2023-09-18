@@ -227,6 +227,66 @@ LadderMap will probably scroll, and so should probably also only display a porti
 
 # OLD
 
+/*
+ladder_init_system
+    creation tilemap
+    spawn child tiles
+
+tilemap_mouse_position_system
+    maintain MouseTilePosition(tilemap) component
+
+Cursor - Maybe combine with hover?
+    tilemap_cursor_system
+        changed to MouseTilePosition(tilemap)
+        maintain TileMapCursorRef(tilemap) and spawns tile cursor
+
+    tilemap_cursor_removal_system
+        if TileMapCursorRef(tilemap) but no  MouseTilePosition(tilemap)
+        remove TileMapCursorRef(tilemap) and TileMapCursor
+
+Hover
+    tile_hover_system
+        changed MouseTilePosition(tilemap)
+        maintain HoveredRef(tilemap) and Hovered(tile)
+
+    tilemap_hover_removal_system
+        if HoveredRef(tilemap) but no MouseTilePosition(tilemap)
+        remove HoveredRef(tilemap) and Hovered(tile)
+
+    ladder_tile_unhighlight_system
+        removal of Hovered(tile)
+        add NeedsStyleUpdate(tile)
+
+Focus
+    ladder_tile_mouse_system
+        mouse button events
+        with hovered(tile)
+        maintain Focused(tile)
+
+    ladder_tile_focus_unhighlight_system
+        removal of Focused(tile)
+        add NeedsStyleUpdate(tile)
+
+
+Tile Styling
+    tile_style_system
+        added (tile) Hovered, Focused, NeedsStyleUpdate
+        maintain Stroke(tile) and style
+
+    ladder_tile_path_update_system
+        changed tile
+        updates paths(tile)
+
+Tile Label
+    tile_label_reference_system
+        added TileLabel(tile)
+        add TileLabelRef(tilemap) to parent
+
+    ladder_tile_label_update_system
+        changed tile
+        update Text(tile_label)
+*/
+
 NamedRefMap?
   Component that has hashmap of string->entity references?
   Not sure if this, individual refs, or query of children with the marker components

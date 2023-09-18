@@ -6,29 +6,6 @@ use super::tile::*;
 use super::tilemap::*;
 use super::TILE_SIZE;
 
-pub fn spawn_tile_cursor(
-    commands: &mut Commands,
-    tile_position: UVec2,
-) -> Entity {
-    let cursor_path = format!("M 0,0 H {} V {} H 0 Z", TILE_SIZE.x, TILE_SIZE.y);
-    commands.spawn((
-        TileMapCursor,
-        TilePosition(tile_position),
-        ShapeBundle {
-            transform: Transform::from_translation(
-                (tile_position.as_vec2()*TILE_SIZE).extend(Z_ORDER_CURSOR)
-            ),
-            path: GeometryBuilder::build_as(&shapes::SvgPathShape {
-                svg_path_string: cursor_path,
-                svg_doc_size_in_px: Vec2::Y * (TILE_SIZE.y * 2.0), //TODO HACK Invert Y
-            }),
-            ..default()
-        },
-        Stroke::new(Color::BLACK, 2.0),
-        Fill::color(Color::rgb(0.7, 0.7, 0.9)),
-    )).id()
-}
-
 pub fn spawn_tile(
     mut commands: &mut Commands,
     tile: Tile,
@@ -58,6 +35,30 @@ pub fn spawn_tile(
     .push_children(&vec![tile_label_entity])
     .id()
 }
+
+pub fn spawn_tile_cursor(
+    commands: &mut Commands,
+    tile_position: UVec2,
+) -> Entity {
+    let cursor_path = format!("M 0,0 H {} V {} H 0 Z", TILE_SIZE.x, TILE_SIZE.y);
+    commands.spawn((
+        TileMapCursor,
+        TilePosition(tile_position),
+        ShapeBundle {
+            transform: Transform::from_translation(
+                (tile_position.as_vec2()*TILE_SIZE).extend(Z_ORDER_CURSOR)
+            ),
+            path: GeometryBuilder::build_as(&shapes::SvgPathShape {
+                svg_path_string: cursor_path,
+                svg_doc_size_in_px: Vec2::Y * (TILE_SIZE.y * 2.0), //TODO HACK Invert Y
+            }),
+            ..default()
+        },
+        Stroke::new(Color::BLACK, 2.0),
+        Fill::color(Color::rgb(0.7, 0.7, 0.9)),
+    )).id()
+}
+
 
 pub fn spawn_tilelabel(
     commands: &mut Commands,
