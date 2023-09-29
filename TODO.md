@@ -1,6 +1,7 @@
 ***Current Problem***
 How should we represent plc memory?
 
+
 What about non plc in-game components?
   Such as sensors, motors, lights, etc
   Need IO with each other and logic systems
