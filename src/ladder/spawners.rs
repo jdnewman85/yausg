@@ -18,9 +18,12 @@ pub fn spawn_tile(
         tile,
         TilePosition(position.as_uvec2()),
         ShapeBundle {
-            transform: Transform::from_translation(
-                (position*TILE_SIZE).extend(Z_ORDER_SPRITE)
-            ),
+            spatial: SpatialBundle{
+                transform: Transform::from_translation(
+                    (position*TILE_SIZE).extend(Z_ORDER_SPRITE)
+                ),
+                ..default()
+            },
             path: GeometryBuilder::build_as(&shapes::SvgPathShape {
                 svg_path_string: Tile::default().path_string(),
                 svg_doc_size_in_px: Vec2::ZERO, //TODO size
@@ -45,9 +48,12 @@ pub fn spawn_tile_cursor(
         TileMapCursor,
         TilePosition(tile_position),
         ShapeBundle {
-            transform: Transform::from_translation(
-                (tile_position.as_vec2()*TILE_SIZE).extend(Z_ORDER_CURSOR)
-            ),
+            spatial: SpatialBundle{
+                transform: Transform::from_translation(
+                    (tile_position.as_vec2()*TILE_SIZE).extend(Z_ORDER_CURSOR)
+                ),
+                ..default()
+            },
             path: GeometryBuilder::build_as(&shapes::SvgPathShape {
                 svg_path_string: cursor_path,
                 svg_doc_size_in_px: Vec2::Y * (TILE_SIZE.y * 2.0), //TODO HACK Invert Y

@@ -95,7 +95,7 @@ pub fn tilemap_cursor_removal_system(
     mut removed_entities: RemovedComponents<MouseTilePosition>,
     cursor_ref_query: Query<&TileMapCursorRef, Without<MouseTilePosition>>
 ) {
-    for tilemap_entity in &mut removed_entities {
+    for tilemap_entity in &mut removed_entities.read() {
         let Ok(tilemap_cursor_ref) = cursor_ref_query.get(tilemap_entity) else {
             dbg!("TODO FIX ME: MouseTilePosition removed, but no TileMapCursorRef in cursor query");
             return;
@@ -136,7 +136,7 @@ pub fn tilemap_hover_removal_system(
     mut removed_entities: RemovedComponents<MouseTilePosition>,
     unhovered_tilemap_query: Query<&HoveredRef, Without<MouseTilePosition>>
 ) {
-    for tilemap_entity in &mut removed_entities {
+    for tilemap_entity in &mut removed_entities.read() {
         let Ok(tilemap_hover_ref) = unhovered_tilemap_query.get(tilemap_entity) else {
             dbg!("TODO FIX ME: MouseTilePosition removed, but no HoveredRef in query");
             return;
@@ -151,7 +151,7 @@ pub fn ladder_tile_unhighlight_system(
     mut commands: Commands,
     mut removed_hovered_entities: RemovedComponents<Hovered>,
 ) {
-    for unhovered_entity in &mut removed_hovered_entities {
+    for unhovered_entity in &mut removed_hovered_entities.read() {
         //dbg!("ladder_tile_unhighlight_system");
         commands.entity(unhovered_entity).insert(NeedsStyleUpdate);
     }
@@ -195,7 +195,7 @@ pub fn ladder_tile_focus_unhighlight_system(
     mut commands: Commands,
     mut removed_focused_entities: RemovedComponents<Focused>,
 ) {
-    for unfocused_entity in &mut removed_focused_entities {
+    for unfocused_entity in &mut removed_focused_entities.read() {
         //dbg!("ladder_tile_focus_unhighlight_system");
         commands.entity(unfocused_entity).insert(NeedsStyleUpdate);
     }

@@ -75,7 +75,7 @@ pub fn god_mode_camera_system(
         || window.cursor.grab_mode == CursorGrabMode::Locked;
     if cursor_locked {
         let mut mouse_move = Vec2::ZERO;
-        for motion_event in ev_motion.into_iter() {
+        for motion_event in ev_motion.read() {
             mouse_move += motion_event.delta;
         }
 

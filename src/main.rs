@@ -165,7 +165,10 @@ fn setup(
     commands.spawn((
         tilemap,
         ShapeBundle {
-            transform: Transform::from_xyz(-200.0, 0.0, 0.0),
+            spatial: SpatialBundle {
+                transform: Transform::from_xyz(-200.0, 0.0, 0.0),
+                ..default()
+            },
             path: GeometryBuilder::build_as(&shapes::SvgPathShape {
                 svg_path_string: tile_map_path,
                 svg_doc_size_in_px: Vec2::Y * (tilemap_pixel_size.y * 2.0), //TODO HACK Invert Y
