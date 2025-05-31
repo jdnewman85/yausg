@@ -1,4 +1,53 @@
 # Prototype todo
+
+
+
+## Components ATM
+
+### Tile
+TileLabelRef
+TileLabel
+Tile
+
+### Tilemap
+MouseTilePosition
+TilePosition
+LadderTileMap
+
+### Camera
+OrbitCamera
+GodModeCamera
+OrbitalTarget
+
+### Ladder
+FocusedRef
+Focused
+HoveredRef
+Hovered
+TileMapCursorRef
+TileMapCursor
+NeedsStyleUpdate
+
+### VLadder
+InputModule
+OutputModule
+DebugCpuModule
+
+
+
+
+## Bundles ATM
+
+### VLadder
+DebugCpuBundle
+
+## Systems ATM
+
+
+
+
+-----------------------------------------------------------------------------------
+
 ## Constant Considerations
 Always ask, should it be a component?
 Need effort in keeping display/action systems separate, yet synced properly

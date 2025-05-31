@@ -48,7 +48,7 @@ impl Wire {
 }
 
 #[derive(Clone, Copy, Default, Debug)]
-enum Polarity {
+pub enum Polarity {
     #[default]
     NO,
     NC,
@@ -64,16 +64,16 @@ impl Polarity {
 }
 
 #[derive(Clone, Copy, Default, Debug)]
-enum ContactOrCoil {
+pub enum ContactOrCoil {
     #[default]
     Contact,
     Coil,
 }
 #[derive(Clone,  Debug)]
 pub struct BoolElement {
-    contact_or_coil: ContactOrCoil,
-    address: String,
-    polarity: Polarity,
+    pub contact_or_coil: ContactOrCoil,
+    pub address: String,
+    pub polarity: Polarity,
 }
 
 impl BoolElement {

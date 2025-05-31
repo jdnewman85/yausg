@@ -15,7 +15,13 @@ pub fn test_clear_tilemap_system(
     for tilemap in tilemap_query.iter() {
         tilemap.apply_pos_fn(|tile, position, size| {
             *tile = match (&tile, position, size) {
-                (_, pos, size) if pos.x == 0 || pos.x == size.x-1 => Tile::Wire(Wire::Vert),
+                (_, pos, size) if pos.x == 0 || pos.x == size.x-1 => Tile::BoolElement(
+                    BoolElement{
+                        contact_or_coil: ContactOrCoil::Coil,
+                        address: "X01".to_string(),
+                        polarity: Polarity::NC,
+                    }
+                ),
                 (_, _, _) => Tile::None,
             }
         }, &mut tile_query);

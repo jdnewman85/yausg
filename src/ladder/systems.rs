@@ -7,6 +7,8 @@ use super::tilemap::*;
 use super::spawners::*;
 
 
+/// On LadderTileMap creation,
+///   spawn child tiles
 pub fn ladder_init_system(
     mut commands: Commands,
     mut tilemap_query: Query<(&mut LadderTileMap, Entity), Added<LadderTileMap>>,
@@ -26,6 +28,9 @@ pub fn ladder_init_system(
     }
 }
 
+/// If mouse over tilemap,
+///   add MouseTilePosition to tile under cursor
+///   and remove any old ones
 pub fn tilemap_mouse_position_system(
     mut commands: Commands,
     window_query: Query<&Window>,
@@ -64,6 +69,9 @@ pub fn tilemap_mouse_position_system(
 
 ///Cursor - Maybe combine with hover?
 
+/// If MouseTilePosition changed,
+///   insert or
+///   update TileMapCursorRef
 pub fn tilemap_cursor_system(
     mut commands: Commands,
     mut tilemap_query: Query<
@@ -90,6 +98,8 @@ pub fn tilemap_cursor_system(
     }
 }
 
+/// If TileMapCursorRef exists without MouseTilePosition,
+///   remove TileMapCursorRef
 pub fn tilemap_cursor_removal_system(
     mut commands: Commands,
     mut removed_entities: RemovedComponents<MouseTilePosition>,
@@ -108,6 +118,8 @@ pub fn tilemap_cursor_removal_system(
 
 ///Hover
 
+/// If MouseTilePosition changed
+///   insert, update or remove Hovered
 pub fn tile_hover_system(
     mut commands: Commands,
     mut tilemap_query: Query<(Entity, &LadderTileMap, &MouseTilePosition, Option<&mut HoveredRef>), Changed<MouseTilePosition>>,
@@ -131,6 +143,9 @@ pub fn tile_hover_system(
     }
 }
 
+/// If MouseTilePosition removed
+///   remove Hovered
+///   remove HoveredRef
 pub fn tilemap_hover_removal_system(
     mut commands: Commands,
     mut removed_entities: RemovedComponents<MouseTilePosition>,
@@ -146,6 +161,8 @@ pub fn tilemap_hover_removal_system(
     }
 }
 
+/// If Hovered removed,
+///   insert NeedsStyleUpdate
 //TODO Rename to unhover
 pub fn ladder_tile_unhighlight_system(
     mut commands: Commands,
@@ -157,8 +174,15 @@ pub fn ladder_tile_unhighlight_system(
     }
 }
 
-///Focus
+///Focus/Selection
 
+/// If a tile is Hovered
+///   and Left clicked
+///     Focus new
+///     Unfocus old
+///   and Right clicked
+///     Unfocus old
+//TODO Rename to focusSomethingOrAnother?
 pub fn ladder_tile_mouse_system(
     mut commands: Commands,
     mouse_buttons: Res<Input<MouseButton>>,
@@ -168,10 +192,9 @@ pub fn ladder_tile_mouse_system(
     for (tile_entity, parent) in tile_query.iter_mut() {
         let maybe_focused_ref = tilemap_query.get(parent.get()).unwrap();
 
-        //Select
-        //TODO Remove any already selected
+        //Focus
         if mouse_buttons.just_pressed(MouseButton::Left) {
-            //Unselect previous
+            //Unfocus previous
             if let Some(focused_ref) = maybe_focused_ref {
                 commands.entity(focused_ref.0).remove::<Focused>();
             }
@@ -182,7 +205,7 @@ pub fn ladder_tile_mouse_system(
         }
 
         if mouse_buttons.just_pressed(MouseButton::Right) {
-            //Unselect previous
+            //Unfocus previous
             if let Some(focused_ref) = maybe_focused_ref {
                 commands.entity(focused_ref.0).remove::<Focused>();
             }
@@ -190,6 +213,8 @@ pub fn ladder_tile_mouse_system(
     }
 }
 
+/// If Focused removed
+///   insert NeedsStyleUpdate
 //TODO Rename to unfocus
 pub fn ladder_tile_focus_unhighlight_system(
     mut commands: Commands,
@@ -203,6 +228,10 @@ pub fn ladder_tile_focus_unhighlight_system(
 
 ///Tile Styling
 
+/// If a style related component has been added,
+///   such as Hovered, Focused, or NeedsStyleUpdate (used mostly for triggering from removed)
+///   modify stoke style
+///   remove NeedsStyleUpdate
 pub fn tile_style_system(
     mut commands: Commands,
     mut tile_query: Query<
@@ -222,6 +251,8 @@ pub fn tile_style_system(
     }
 }
 
+/// If Tile changed,
+///   update path
 pub fn ladder_tile_path_update_system(
     mut tile_query: Query<(&Tile, &mut Path), Changed<Tile>>,
 ) {
@@ -242,7 +273,8 @@ pub fn ladder_tile_path_update_system(
 
 ///Tile Label
 
-//Adds references to TileLabel child as TileLabelRef component on parent
+/// If TileLabel added
+///   insert TileLabelRef on parent with reference to TileLabel entity
 pub fn tile_label_reference_system(
     mut commands: Commands,
     label_query: Query<(Entity, &Parent), Added<TileLabel>>,
@@ -256,6 +288,8 @@ pub fn tile_label_reference_system(
     }
 }
 
+/// If Tile changed
+///   update TileLabel text
 pub fn ladder_tile_label_update_system(
     mut tile_query: Query<(&Tile, &TileLabelRef), Changed<Tile>>,
     mut label_query: Query<&mut Text, With<TileLabel>>,
